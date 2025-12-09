@@ -5,17 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pokedex Geração 1-3</title>
 <style>
-body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
+body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:flex; }
+
+/* SIDEBAR */
+.sidebar {
+  width:200px;
+  background:#f1f1f1;
+  height:100vh;
+  position:fixed;
+  left:0;
+  top:0;
+  padding:20px;
+  box-sizing:border-box;
+  overflow-y:auto;
+}
+.sidebar h2 { margin-top:0; font-size:18px; }
+.sidebar button { margin:5px 0; padding:8px 10px; width:100%; border:none; border-radius:5px; cursor:pointer; }
+
+/* CONTENT */
+.content { margin-left:200px; flex:1; display:flex; flex-direction:column; }
 .search-container { display:flex; justify-content:center; padding:20px; }
 .search-container input { width:90%; max-width:500px; padding:10px 15px; border:2px solid #000; border-radius:25px; font-size:16px; outline:none; }
 
+/* POKEMON GRID */
 .pokemon-container {
   display:grid;
-  grid-template-columns:repeat(3, 1fr); /* sempre 3 por linha */
+  grid-template-columns:repeat(3, 1fr);
   gap:15px;
   padding:10px;
 }
 
+@media(max-width:900px){ .pokemon-container { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:600px){ .pokemon-container { grid-template-columns:1fr; } .content { margin-left:0; } }
+
+/* POKEMON CARD */
 .pokemon-card { width:100%; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
 .pokemon-card.show { opacity:1; }
 .pokemon-card img.pokemon-img { width:100px; height:100px; margin-right:10px; }
@@ -23,11 +46,13 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
 .pokemon-types { position:absolute; top:5px; right:25px; display:flex; gap:3px; }
 .pokemon-type-img { width:15px; height:15px; }
 
+/* DETAIL BOX */
 .detail-box { position:absolute; top:5px; right:5px; padding:10px; border-radius:10px; max-width:180px; text-align:left; display:none; z-index:10; color:#fff; }
 .detail-box h4 { margin:0 0 5px 0; font-size:14px; }
 .detail-box p { margin:2px 0; font-size:12px; }
 .close-btn { position:absolute; top:2px; right:2px; background:red; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; }
 
+/* LOAD MORE */
 .load-more-container { display:flex; justify-content:center; margin:20px 0; }
 .load-more-btn { padding:10px 20px; font-size:16px; border-radius:25px; border:2px solid #000; cursor:pointer; background-color:#fff; }
 
@@ -36,28 +61,44 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
   .pokemon-card img.pokemon-img { width:70px; height:70px; }
   .pokemon-type-img { width:12px; height:12px; }
   .detail-box { max-width:140px; font-size:11px; }
+  .sidebar { position:fixed; left:-220px; transition:0.3s; z-index:20; }
+  .sidebar.show { left:0; }
+  .sidebar-toggle { position:fixed; left:10px; top:10px; z-index:30; background:#000; color:#fff; border:none; padding:10px; border-radius:5px; cursor:pointer; }
 }
 </style>
 </head>
 <body>
 
-<div class="search-container">
-  <input type="text" id="search" placeholder="Digite o nome do Pokémon...">
+<div class="sidebar" id="sidebar">
+  <h2>Sidebar</h2>
+  <button onclick="filterType('fire')">Fire</button>
+  <button onclick="filterType('water')">Water</button>
+  <button onclick="filterType('grass')">Grass</button>
+  <button onclick="resetFilter()">All</button>
 </div>
 
-<div class="pokemon-container" id="pokemon-container"></div>
-<div class="load-more-container">
-  <button id="load-more" class="load-more-btn">Carregar mais</button>
+<div class="content">
+  <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+  <div class="search-container">
+    <input type="text" id="search" placeholder="Digite o nome do Pokémon...">
+  </div>
+  <div class="pokemon-container" id="pokemon-container"></div>
+  <div class="load-more-container">
+    <button id="load-more" class="load-more-btn">Carregar mais</button>
+  </div>
 </div>
 
 <script>
 const container=document.getElementById('pokemon-container');
 const searchInput=document.getElementById('search');
 const loadMoreBtn=document.getElementById('load-more');
+const sidebar=document.getElementById('sidebar');
+const sidebarToggle=document.getElementById('sidebar-toggle');
 const totalPokemons=386; // Geração 1-3
 const batchSize=150;
 let loadedCount=0;
 const allPokemons=[];
+let currentFilter=null;
 
 const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"#F7D02C",
   grass:"#7AC74C", ice:"#96D9D6", fighting:"#C22E28", poison:"#A33EA1",
@@ -66,11 +107,12 @@ const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"
   steel:"#B7B7CE", fairy:"#D685AD" };
 
 function upper(str){ return str.toUpperCase(); }
-
 async function fetchPokemon(id){ const res=await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`); return await res.json(); }
 async function fetchPokemonSpecies(id){ const res=await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`); return await res.json(); }
 
 function createPokemonCard(pokemon){
+  if(currentFilter && !pokemon.types.some(t=>t.type.name===currentFilter)) return;
+
   const card=document.createElement('div');
   const primaryType=pokemon.types[0].type.name;
   card.classList.add('pokemon-card');
@@ -155,7 +197,6 @@ async function loadBatch(){
   loadedCount+=(end-start+1);
   if(loadedCount>=totalPokemons) loadMoreBtn.style.display='none';
 
-  // Preencher última linha com cards invisíveis se necessário
   const remainder=loadedCount%3;
   if(remainder>0){
     for(let i=0;i<3-remainder;i++){
@@ -172,9 +213,14 @@ searchInput.addEventListener('input',()=>{
   allPokemons.filter(p=>p.name.includes(value)).forEach(p=>createPokemonCard(p));
 });
 
-loadBatch();
 loadMoreBtn.addEventListener('click',()=>{ loadBatch(); });
+sidebarToggle.addEventListener('click',()=>{ sidebar.classList.toggle('show'); });
+
+function filterType(type){ currentFilter=type; container.innerHTML=''; allPokemons.forEach(p=>createPokemonCard(p)); }
+function resetFilter(){ currentFilter=null; container.innerHTML=''; allPokemons.forEach(p=>createPokemonCard(p)); }
+
+loadBatch();
 </script>
 
 </body>
-</html>
+  </html>
