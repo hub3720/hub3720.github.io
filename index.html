@@ -8,21 +8,27 @@
 body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
 .search-container { display:flex; justify-content:center; padding:20px; }
 .search-container input { width:90%; max-width:500px; padding:10px 15px; border:2px solid #000; border-radius:25px; font-size:16px; outline:none; }
-.pokemon-container { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; padding:10px; }
-.pokemon-card { flex: 1 1 150px; max-width:250px; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
+.pokemon-container { display:grid; grid-template-columns:repeat(3, 1fr); gap:15px; padding:10px; }
+@media(max-width:900px) { .pokemon-container { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:600px) { .pokemon-container { grid-template-columns:1fr; } }
+
+.pokemon-card { width:100%; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
 .pokemon-card.show { opacity:1; }
 .pokemon-card img.pokemon-img { width:100px; height:100px; margin-right:10px; }
 .pokemon-number { position:absolute; top:5px; left:10px; font-size:14px; }
 .pokemon-types { position:absolute; top:5px; right:25px; display:flex; gap:3px; }
 .pokemon-type-img { width:15px; height:15px; }
+
 .detail-box { position:absolute; top:5px; right:5px; padding:10px; border-radius:10px; max-width:180px; text-align:left; display:none; z-index:10; color:#fff; }
 .detail-box h4 { margin:0 0 5px 0; font-size:14px; }
 .detail-box p { margin:2px 0; font-size:12px; }
 .close-btn { position:absolute; top:2px; right:2px; background:red; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; }
+
 .load-more-container { display:flex; justify-content:center; margin:20px 0; }
 .load-more-btn { padding:10px 20px; font-size:16px; border-radius:25px; border:2px solid #000; cursor:pointer; background-color:#fff; }
+
 @media (max-width:600px) {
-  .pokemon-card { flex:1 1 120px; max-width:200px; height:100px; padding-left:5px; }
+  .pokemon-card { height:100px; padding-left:5px; }
   .pokemon-card img.pokemon-img { width:70px; height:70px; }
   .pokemon-type-img { width:12px; height:12px; }
   .detail-box { max-width:140px; font-size:11px; }
@@ -41,32 +47,30 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
 </div>
 
 <script>
-const container = document.getElementById('pokemon-container');
-const searchInput = document.getElementById('search');
-const loadMoreBtn = document.getElementById('load-more');
-const totalPokemons = 1025;
-const batchSize = 150;
-let loadedCount = 0;
-const allPokemons = [];
+const container=document.getElementById('pokemon-container');
+const searchInput=document.getElementById('search');
+const loadMoreBtn=document.getElementById('load-more');
+const totalPokemons=1025;
+const batchSize=150;
+let loadedCount=0;
+const allPokemons=[];
 
-const typeColors = {
-  normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"#F7D02C",
+const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"#F7D02C",
   grass:"#7AC74C", ice:"#96D9D6", fighting:"#C22E28", poison:"#A33EA1",
   ground:"#E2BF65", flying:"#A98FF3", psychic:"#F95587", bug:"#A6B91A",
   rock:"#B6A136", ghost:"#735797", dragon:"#6F35FC", dark:"#705746",
-  steel:"#B7B7CE", fairy:"#D685AD"
-};
+  steel:"#B7B7CE", fairy:"#D685AD" };
 
 function upper(str){ return str.toUpperCase(); }
 
-async function fetchPokemon(id){ const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`); return await res.json(); }
-async function fetchPokemonSpecies(id){ const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`); return await res.json(); }
+async function fetchPokemon(id){ const res=await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`); return await res.json(); }
+async function fetchPokemonSpecies(id){ const res=await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`); return await res.json(); }
 
 function createPokemonCard(pokemon){
-  const card = document.createElement('div');
-  const primaryType = pokemon.types[0].type.name;
+  const card=document.createElement('div');
+  const primaryType=pokemon.types[0].type.name;
   card.classList.add('pokemon-card');
-  card.style.backgroundColor = typeColors[primaryType]||"#777";
+  card.style.backgroundColor=typeColors[primaryType]||"#777";
 
   const number=document.createElement('div');
   number.classList.add('pokemon-number');
@@ -135,7 +139,7 @@ function createPokemonCard(pokemon){
 async function loadBatch(){
   const start=loadedCount+1;
   const end=Math.min(loadedCount+batchSize,totalPokemons);
-  const delay=30000/batchSize; // 30s / 150
+  const delay=30000/batchSize;
 
   for(let i=start;i<=end;i++){
     const pokemon=await fetchPokemon(i);
@@ -148,7 +152,6 @@ async function loadBatch(){
   if(loadedCount>=totalPokemons) loadMoreBtn.style.display='none';
 }
 
-// Busca
 searchInput.addEventListener('input',()=>{
   const value=searchInput.value.toLowerCase();
   container.innerHTML='';
