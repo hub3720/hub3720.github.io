@@ -3,82 +3,199 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mundo de Blocos Mobile</title>
+<title>Pokedex</title>
 <style>
-body { margin:0; padding:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; overflow:hidden; }
-canvas { background:#000; display:block; }
-#controls { position: fixed; bottom:10px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%; }
-button { padding:15px 20px; font-size:18px; border:none; border-radius:10px; background:#66ccff; color:#001; font-weight:700; cursor:pointer; }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #fff;
+  }
+
+  .search-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .search-container input {
+    width: 90%;
+    max-width: 500px;
+    padding: 10px 15px;
+    border: 2px solid #000;
+    border-radius: 25px;
+    font-size: 16px;
+    outline: none;
+  }
+
+  .pokemon-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    padding: 10px;
+  }
+
+  .pokemon-card {
+    width: 150px;
+    height: 200px;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+
+  .pokemon-card:hover {
+    transform: scale(1.05);
+  }
+
+  .pokemon-card img {
+    width: 100px;
+    height: 100px;
+    margin-top: 10px;
+  }
+
+  .pokemon-number {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 14px;
+  }
+
+  .pokemon-types {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+  }
+
+  .pokemon-type-img {
+    width: 25px;
+    height: 25px;
+  }
+
+  @media (max-width: 600px) {
+    .pokemon-card {
+      width: 120px;
+      height: 170px;
+    }
+
+    .pokemon-card img {
+      width: 80px;
+      height: 80px;
+    }
+  }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="controls">
-<button id="up">⬆</button>
-<button id="left">⬅</button>
-<button id="down">⬇</button>
-<button id="right">➡</button>
+
+<div class="search-container">
+  <input type="text" id="search" placeholder="Digite o nome do Pokémon...">
+</div>
+
+<div class="pokemon-container" id="pokemon-container">
+  <!-- Cards serão inseridos aqui -->
 </div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const container = document.getElementById('pokemon-container');
+const searchInput = document.getElementById('search');
+const totalPokemons = 150; // Começamos com 150 para não travar a página
+const allPokemons = []; // cache de Pokémon carregados
 
-const visibleBlocks = 17; // 8 blocos de cada lado + 1 player
-let blockSize;
-let player = { x:0, y:0 }; // posição no mundo virtual
+const typeColors = {
+  normal: "#A8A77A",
+  fire: "#EE8130",
+  water: "#6390F0",
+  electric: "#F7D02C",
+  grass: "#7AC74C",
+  ice: "#96D9D6",
+  fighting: "#C22E28",
+  poison: "#A33EA1",
+  ground: "#E2BF65",
+  flying: "#A98FF3",
+  psychic: "#F95587",
+  bug: "#A6B91A",
+  rock: "#B6A136",
+  ghost: "#735797",
+  dragon: "#6F35FC",
+  dark: "#705746",
+  steel: "#B7B7CE",
+  fairy: "#D685AD"
+};
 
-function resizeCanvas(){
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  blockSize = Math.min(canvas.width, canvas.height) / visibleBlocks;
-  draw();
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-function drawRoundedRect(x,y,w,h,r,color){
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.lineTo(x+w-r,y);
-  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-  ctx.lineTo(x+w,y+h-r);
-  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-  ctx.lineTo(x+r,y+h);
-  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-  ctx.lineTo(x,y+r);
-  ctx.quadraticCurveTo(x,y,x+r,y);
-  ctx.fill();
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  let offsetX = canvas.width/2 - blockSize/2;
-  let offsetY = canvas.height/2 - blockSize/2;
-
-  for(let i=-8;i<=8;i++){
-    for(let j=-8;j<=8;j++){
-      let color = (i===-8||i===8||j===-8||j===8) ? 255 : 0;
-      ctx.fillStyle = `rgb(${color},${color},${color})`;
-      ctx.fillRect(offsetX + i*blockSize, offsetY + j*blockSize, blockSize, blockSize);
-    }
+// Busca Pokémon pelo ID
+async function fetchPokemon(id) {
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error(err);
   }
-
-  // personagem arredondado
-  drawRoundedRect(offsetX, offsetY, blockSize, blockSize, blockSize*0.2, '#ffffff');
 }
 
-function move(dx,dy){
-  player.x += dx;
-  player.y += dy;
-  draw();
+// Cria card do Pokémon
+function createPokemonCard(pokemon) {
+  const card = document.createElement('div');
+  const primaryType = pokemon.types[0].type.name;
+  card.classList.add('pokemon-card');
+  card.style.backgroundColor = typeColors[primaryType] || "#777";
+
+  const number = document.createElement('div');
+  number.classList.add('pokemon-number');
+  number.textContent = `#${pokemon.id.toString().padStart(3,'0')}`;
+  card.appendChild(number);
+
+  const typesContainer = document.createElement('div');
+  typesContainer.classList.add('pokemon-types');
+  pokemon.types.forEach(t => {
+    const img = document.createElement('img');
+    img.src = `https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${t.type.name}.svg`;
+    img.classList.add('pokemon-type-img');
+    typesContainer.appendChild(img);
+  });
+  card.appendChild(typesContainer);
+
+  const img = document.createElement('img');
+  img.src = pokemon.sprites.other['official-artwork'].front_default;
+  img.alt = pokemon.name;
+  card.appendChild(img);
+
+  const name = document.createElement('div');
+  name.textContent = pokemon.name;
+  card.appendChild(name);
+
+  container.appendChild(card);
 }
 
-document.getElementById('up').addEventListener('click',()=>move(0,-1));
-document.getElementById('down').addEventListener('click',()=>move(0,1));
-document.getElementById('left').addEventListener('click',()=>move(-1,0));
-document.getElementById('right').addEventListener('click',()=>move(1,0));
+// Carrega Pokémon com delay gradual
+async function loadPokemons() {
+  for (let i = 1; i <= totalPokemons; i++) {
+    const pokemon = await fetchPokemon(i);
+    allPokemons.push(pokemon);
+    createPokemonCard(pokemon);
+    await new Promise(res => setTimeout(res, 30)); // efeito visual clássico
+  }
+}
+
+// Busca Pokémon no cache
+searchInput.addEventListener('input', () => {
+  const value = searchInput.value.toLowerCase();
+  container.innerHTML = '';
+  allPokemons
+    .filter(p => p.name.includes(value))
+    .forEach(p => createPokemonCard(p));
+});
+
+// Inicializa a Pokédex
+loadPokemons();
 </script>
+
 </body>
-</html>
+  </html>
