@@ -2,120 +2,175 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>PokéWeb MMO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéMMO Avançado</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.0/dist/colyseus.js"></script>
 <style>
-  body{margin:0;overflow:hidden;background:#111;color:#fff;font-family:sans-serif;}
-  #gameCanvas{display:block;background:#0b0f13;}
-  #inventory{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;}
-  .item{width:32px;height:32px;margin:2px;display:inline-block;background-size:contain;background-repeat:no-repeat;}
+body { margin:0; padding:0; overflow:hidden; background:#000; }
+canvas { display:block; margin:0 auto; }
+#chat { position:fixed; bottom:0; width:100%; display:flex; gap:4px; padding:4px; background:rgba(0,0,0,0.5); }
+#chat input { flex:1; padding:6px; border-radius:4px; border:none; }
+#chat button { padding:6px 10px; border-radius:4px; border:none; background:#66ccff; color:#001; font-weight:700; cursor:pointer; }
+#messages { position:fixed; bottom:50px; left:4px; max-width:70%; color:#fff; font-family:Arial, sans-serif; font-size:14px; overflow:auto; max-height:40vh; }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="800" height="600"></canvas>
-<div id="inventory">
-  <div class="item" id="pokeball"></div>
-  <div class="item" id="greatball"></div>
-  <div class="item" id="ultraball"></div>
-  <div class="item" id="potion"></div>
+
+<div id="messages"></div>
+<div id="chat">
+<input type="text" id="chatInput" placeholder="Escreva algo..."/>
+<button id="chatSend">Enviar</button>
 </div>
+
 <script>
-// --- Configurações ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+let config = {
+    type: Phaser.AUTO,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    physics: { default:'arcade', arcade:{ debug:false } },
+    scene: { preload, create, update }
+};
 
-const TILE_SIZE = 64;
-const MAP_WIDTH = 12;
-const MAP_HEIGHT = 9;
+let game = new Phaser.Game(config);
 
-const map = [
-  [0,0,0,0,0,0,0,0,0,0,0,0],
-  [0,1,1,1,0,0,0,1,1,1,1,0],
-  [0,1,0,1,0,0,0,1,0,0,1,0],
-  [0,1,0,1,1,1,1,1,0,0,1,0],
-  [0,1,0,0,0,0,0,1,0,0,1,0],
-  [0,1,1,1,1,0,0,1,1,1,1,0],
-  [0,0,0,0,1,0,0,0,0,0,0,0],
-  [0,1,1,0,1,1,1,0,1,1,1,0],
-  [0,0,0,0,0,0,0,0,0,0,0,0],
-];
+let player, cursors;
+let otherPlayers = {};
+let stars = [];
+let pokemons = [];
+let items = [];
+let socketClient;
 
-const player = {x:5*TILE_SIZE, y:5*TILE_SIZE, sprite:null};
+let messageContainer = document.getElementById('messages');
+let chatInput = document.getElementById('chatInput');
+let chatSend = document.getElementById('chatSend');
 
-// NPCs / Pokémons aleatórios
-let npcs = [
-  {x:2*TILE_SIZE, y:2*TILE_SIZE, sprite:null, type:'pokemon'},
-  {x:9*TILE_SIZE, y:6*TILE_SIZE, sprite:null, type:'trainer'},
-];
-
-// --- Carregar sprites da PokéAPI ---
-function loadImage(url){ return new Promise(resolve=>{ const img=new Image(); img.src=url; img.onload=()=>resolve(img); }); }
-
-async function loadSprites(){
-  player.sprite = await loadImage('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png'); // Pikachu
-  npcs[0].sprite = await loadImage('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png'); // Bulbasaur
-  npcs[1].sprite = await loadImage('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/trainers/black-white/1.png'); // treinador
-  document.getElementById('pokeball').style.backgroundImage='url(https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png)';
-  document.getElementById('greatball').style.backgroundImage='url(https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png)';
-  document.getElementById('ultraball').style.backgroundImage='url(https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png)';
-  document.getElementById('potion').style.backgroundImage='url(https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/potion.png)';
+function preload(){
+    this.load.image('player', 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png'); // Pikachu
+    this.load.image('pokeball', 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png');
+    this.load.image('masterball', 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png');
+    this.load.image('ultraball', 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png');
+    this.load.image('star', 'https://upload.wikimedia.org/wikipedia/commons/2/2f/Star_icon-72a7cf.svg');
 }
 
-// --- Movimento do jogador ---
-const keys = {};
-document.addEventListener('keydown', e=>keys[e.key]=true);
-document.addEventListener('keyup', e=>keys[e.key]=false);
+function create(){
+    const self = this;
 
-function movePlayer(){
-  if(keys['ArrowUp'] && player.y-TILE_SIZE>=0) player.y -= TILE_SIZE;
-  if(keys['ArrowDown'] && player.y+TILE_SIZE<=canvas.height-TILE_SIZE) player.y += TILE_SIZE;
-  if(keys['ArrowLeft'] && player.x-TILE_SIZE>=0) player.x -= TILE_SIZE;
-  if(keys['ArrowRight'] && player.x+TILE_SIZE<=canvas.width-TILE_SIZE) player.x += TILE_SIZE;
-}
-
-// --- Movimento simples dos NPCs ---
-function moveNPCs(){
-  for(let npc of npcs){
-    const dir=Math.floor(Math.random()*4);
-    switch(dir){
-      case 0: if(npc.y-TILE_SIZE>=0) npc.y -= TILE_SIZE; break;
-      case 1: if(npc.y+TILE_SIZE<=canvas.height-TILE_SIZE) npc.y += TILE_SIZE; break;
-      case 2: if(npc.x-TILE_SIZE>=0) npc.x -= TILE_SIZE; break;
-      case 3: if(npc.x+TILE_SIZE<=canvas.width-TILE_SIZE) npc.x += TILE_SIZE; break;
+    // Fundo com estrelas
+    for(let i=0;i<50;i++){
+        let s = this.add.image(Math.random()*config.width, Math.random()*config.height, 'star');
+        s.setScale(Math.random()*0.5 + 0.2);
+        stars.push({ sprite:s, speed:Math.random()*0.3+0.1 });
     }
-  }
-}
 
-// --- Desenhar mapa ---
-function drawMap(){
-  for(let y=0;y<MAP_HEIGHT;y++){
-    for(let x=0;x<MAP_WIDTH;x++){
-      if(map[y][x]===0) ctx.fillStyle='#222';
-      else ctx.fillStyle='#444';
-      ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    // Conectar ao Colyseus
+    socketClient = new Colyseus.Client('ws://'+window.location.hostname+':2567');
+
+    socketClient.joinOrCreate('game_room').then(room=>{
+        console.log('Conectado à sala', room);
+
+        player = self.physics.add.sprite(400,300,'player');
+
+        room.state.players.onAdd = function(playerState, sessionId){
+            if(sessionId!==room.sessionId){
+                const other = self.physics.add.sprite(playerState.x,playerState.y,'player');
+                otherPlayers[sessionId] = other;
+            }
+        };
+
+        room.state.players.onChange = function(playerState, sessionId){
+            if(sessionId!==room.sessionId){
+                let other = otherPlayers[sessionId];
+                if(other){ other.x=playerState.x; other.y=playerState.y; }
+            }
+        };
+
+        room.state.players.onRemove = function(playerState, sessionId){
+            if(otherPlayers[sessionId]){ otherPlayers[sessionId].destroy(); delete otherPlayers[sessionId]; }
+        });
+
+        // Atualizar posição do jogador no servidor
+        self.time.addEvent({
+            delay:50, loop:true, callback:function(){
+                if(player) room.send('move',{x:player.x,y:player.y});
+            }
+        });
+
+        // Receber mensagens
+        room.onMessage('chat', msg=>{
+            let el = document.createElement('div');
+            el.textContent = msg;
+            messageContainer.appendChild(el);
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        });
+    });
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    // Pokemons aleatórios no mapa
+    for(let i=0;i<5;i++){
+        let x = Math.random()*config.width;
+        let y = Math.random()*config.height;
+        let p = this.physics.add.sprite(x,y,'player');
+        pokemons.push(p);
     }
-  }
+
+    // Itens espalhados
+    for(let i=0;i<3;i++){
+        let itemType = ['pokeball','ultraball','masterball'][i%3];
+        let x = Math.random()*config.width;
+        let y = Math.random()*config.height;
+        let it = this.physics.add.sprite(x,y,itemType);
+        items.push(it);
+    }
+
+    // Chat input
+    chatSend.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', e=>{
+        if(e.key==='Enter') sendChat();
+    });
+
+    function sendChat(){
+        let text = chatInput.value.trim();
+        if(!text) return;
+        chatInput.value='';
+        if(socketClient) socketClient.send('chat',text);
+        let el = document.createElement('div');
+        el.textContent = 'Você: '+text;
+        messageContainer.appendChild(el);
+        messageContainer.scrollTop=messageContainer.scrollHeight;
+    }
 }
 
-// --- Desenhar personagens ---
-function drawEntities(){
-  ctx.drawImage(player.sprite, player.x, player.y, TILE_SIZE, TILE_SIZE);
-  for(let npc of npcs){
-    ctx.drawImage(npc.sprite, npc.x, npc.y, TILE_SIZE, TILE_SIZE);
-  }
-}
+function update(){
+    // Movimento do jogador
+    if(player){
+        let speed = 200;
+        player.setVelocity(0);
+        if(cursors.left.isDown) player.setVelocityX(-speed);
+        if(cursors.right.isDown) player.setVelocityX(speed);
+        if(cursors.up.isDown) player.setVelocityY(-speed);
+        if(cursors.down.isDown) player.setVelocityY(speed);
+    }
 
-// --- Game loop ---
-async function gameLoop(){
-  movePlayer();
-  moveNPCs();
-  drawMap();
-  drawEntities();
-  requestAnimationFrame(gameLoop);
-}
+    // Movimento das estrelas
+    stars.forEach(s=>{
+        s.sprite.y += s.speed;
+        if(s.sprite.y>config.height) s.sprite.y=0;
+    });
 
-// --- Start ---
-loadSprites().then(()=>{ gameLoop(); });
+    // Movimento aleatório dos pokemons
+    pokemons.forEach(p=>{
+        p.x += (Math.random()-0.5)*2;
+        p.y += (Math.random()-0.5)*2;
+    });
+
+    // Movimento leve dos itens
+    items.forEach(it=>{
+        it.x += Math.sin(Date.now()/1000)*0.2;
+        it.y += Math.cos(Date.now()/1000)*0.2;
+    });
+}
 </script>
 </body>
 </html>
