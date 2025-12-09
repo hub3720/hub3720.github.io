@@ -5,28 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pokedex</title>
 <style>
-  body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
-  .search-container { display:flex; justify-content:center; padding:20px; }
-  .search-container input { width:90%; max-width:500px; padding:10px 15px; border:2px solid #000; border-radius:25px; font-size:16px; outline:none; }
-  .pokemon-container { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; padding:10px; }
-  .pokemon-card { width:250px; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
-  .pokemon-card.show { opacity:1; }
-  .pokemon-card img.pokemon-img { width:100px; height:100px; margin-right:10px; }
-  .pokemon-number { position:absolute; top:5px; left:10px; font-size:14px; }
-  .pokemon-types { position:absolute; top:5px; right:25px; display:flex; gap:3px; }
-  .pokemon-type-img { width:15px; height:15px; }
-  .detail-box { position:absolute; top:5px; right:5px; padding:10px; border-radius:10px; max-width:180px; text-align:left; display:none; z-index:10; color:#fff; }
-  .detail-box h4 { margin:0 0 5px 0; font-size:14px; }
-  .detail-box p { margin:2px 0; font-size:12px; }
-  .close-btn { position:absolute; top:2px; right:2px; background:red; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; }
-  .load-more-container { display:flex; justify-content:center; margin:20px 0; }
-  .load-more-btn { padding:10px 20px; font-size:16px; border-radius:25px; border:2px solid #000; cursor:pointer; background-color:#fff; }
-  @media (max-width:600px) {
-    .pokemon-card { width:200px; height:100px; padding-left:5px; }
-    .pokemon-card img.pokemon-img { width:70px; height:70px; }
-    .pokemon-type-img { width:12px; height:12px; }
-    .detail-box { max-width:140px; font-size:11px; }
-  }
+body { margin:0; font-family:Arial,sans-serif; background-color:#fff; }
+.search-container { display:flex; justify-content:center; padding:20px; }
+.search-container input { width:90%; max-width:500px; padding:10px 15px; border:2px solid #000; border-radius:25px; font-size:16px; outline:none; }
+.pokemon-container { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; padding:10px; }
+.pokemon-card { flex: 1 1 150px; max-width:250px; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
+.pokemon-card.show { opacity:1; }
+.pokemon-card img.pokemon-img { width:100px; height:100px; margin-right:10px; }
+.pokemon-number { position:absolute; top:5px; left:10px; font-size:14px; }
+.pokemon-types { position:absolute; top:5px; right:25px; display:flex; gap:3px; }
+.pokemon-type-img { width:15px; height:15px; }
+.detail-box { position:absolute; top:5px; right:5px; padding:10px; border-radius:10px; max-width:180px; text-align:left; display:none; z-index:10; color:#fff; }
+.detail-box h4 { margin:0 0 5px 0; font-size:14px; }
+.detail-box p { margin:2px 0; font-size:12px; }
+.close-btn { position:absolute; top:2px; right:2px; background:red; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; }
+.load-more-container { display:flex; justify-content:center; margin:20px 0; }
+.load-more-btn { padding:10px 20px; font-size:16px; border-radius:25px; border:2px solid #000; cursor:pointer; background-color:#fff; }
+@media (max-width:600px) {
+  .pokemon-card { flex:1 1 120px; max-width:200px; height:100px; padding-left:5px; }
+  .pokemon-card img.pokemon-img { width:70px; height:70px; }
+  .pokemon-type-img { width:12px; height:12px; }
+  .detail-box { max-width:140px; font-size:11px; }
+}
 </style>
 </head>
 <body>
@@ -135,7 +135,7 @@ function createPokemonCard(pokemon){
 async function loadBatch(){
   const start=loadedCount+1;
   const end=Math.min(loadedCount+batchSize,totalPokemons);
-  const delay=30000/batchSize; // 30s / 150 = intervalo entre cada card
+  const delay=30000/batchSize; // 30s / 150
 
   for(let i=start;i<=end;i++){
     const pokemon=await fetchPokemon(i);
