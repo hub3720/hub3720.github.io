@@ -73,6 +73,7 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
   <h2>Menu</h2>
   <button id="start-game-btn">Start Game</button>
   <button id="pokedex-btn" style="display:none;">Pokedex</button>
+  <button id="my-pokemon-btn" style="display:none;">Pokemons</button>
 </div>
 
 <div class="content">
@@ -94,6 +95,7 @@ const sidebar=document.getElementById('sidebar');
 const sidebarToggle=document.getElementById('sidebar-toggle');
 const startGameBtn=document.getElementById('start-game-btn');
 const pokedexBtn=document.getElementById('pokedex-btn');
+const myPokemonBtn=document.getElementById('my-pokemon-btn');
 const searchContainer=document.getElementById('search-container');
 
 const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"#F7D02C",
@@ -102,7 +104,7 @@ const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"
   rock:"#B6A136", ghost:"#735797", dragon:"#6F35FC", dark:"#705746",
   steel:"#B7B7CE", fairy:"#D685AD" };
 
-let currentView='pokedex';
+let currentView='pokedex'; 
 let loadedCount=0;
 const batchSize=150;
 const totalPokemons=386;
@@ -115,7 +117,7 @@ async function fetchPokemonSpecies(id){ const res=await fetch(`https://pokeapi.c
 
 function clearContainer(){ container.innerHTML=''; }
 
-function createPokemonCard(pokemon, showDetails=true){
+function createPokemonCard(pokemon, showDetails=true, onSelect=null){
   const card=document.createElement('div');
   const primaryType=pokemon.types[0].type.name;
   card.classList.add('pokemon-card');
@@ -181,8 +183,8 @@ function createPokemonCard(pokemon, showDetails=true){
       detailBox.innerHTML+=`<p>${flavor}</p>`;
       detailBox.appendChild(closeBtn);
     });
-  } else {
-    card.addEventListener('click',()=>{ selectedPokemon=pokemon; alert("Você selecionou "+upper(pokemon.name)); });
+  } else if(onSelect){
+    card.addEventListener('click',()=>{ onSelect(pokemon); });
   }
 
   container.appendChild(card);
@@ -204,18 +206,12 @@ async function loadBatch(){
   loadedCount+=(end-start+1);
   if(loadedCount>=totalPokemons) loadMoreBtn.style.display='none';
 
-  // Organiza cards em linhas de 3
-  if(currentView==='pokedex'){
-    const cards=Array.from(container.children);
-    container.innerHTML='';
-    for(let i=0;i<cards.length;i+=3){
-      const row=document.createElement('div');
-      row.style.display='flex';
-      row.style.gap='15px';
-      for(let j=0;j<3;j++){
-        if(cards[i+j]) row.appendChild(cards[i+j]);
-      }
-      container.appendChild(row);
+  const remainder=loadedCount%3;
+  if(remainder>0){
+    for(let i=0;i<3-remainder;i++){
+      const filler=document.createElement('div');
+      filler.style.visibility='hidden';
+      container.appendChild(filler);
     }
   }
 }
@@ -234,14 +230,19 @@ startGameBtn.addEventListener('click',async()=>{
   currentView='game';
   pokedexBtn.style.display='block';
   startGameBtn.style.display='none';
+  myPokemonBtn.style.display='none';
   searchContainer.style.display='none';
   clearContainer();
   loadMoreBtn.style.display='none';
-
-  const startersIds=[1,4,7,152,155,158,252,255,258]; // 3 iniciais por geração
+  const startersIds=[1,4,7,152,155,158,252,255,258]; 
   for(const id of startersIds){
     const p=await fetchPokemon(id);
-    createPokemonCard(p,false);
+    createPokemonCard(p,false,(pokemon)=>{
+      selectedPokemon=p;
+      startGameBtn.style.display='none';
+      myPokemonBtn.style.display='block';
+      alert("Você selecionou "+upper(pokemon.name));
+    });
   }
 });
 
@@ -249,16 +250,27 @@ startGameBtn.addEventListener('click',async()=>{
 pokedexBtn.addEventListener('click',()=>{
   currentView='pokedex';
   pokedexBtn.style.display='none';
+  myPokemonBtn.style.display='none';
   startGameBtn.style.display='block';
   searchContainer.style.display='flex';
-
   clearContainer();
   loadedCount=0;
-  allPokemons.length=0;
+  container.innerHTML='';
   loadMoreBtn.style.display='block';
   loadBatch();
 });
+
+// MOSTRAR POKEMON SELECIONADO
+myPokemonBtn.addEventListener('click',()=>{
+  if(!selectedPokemon) return alert("Selecione um Pokémon primeiro!");
+  clearContainer();
+  const p=selectedPokemon;
+  createPokemonCard(p,true);
+  loadMoreBtn.style.display='none';
+  searchContainer.style.display='none';
+});
+loadBatch();
 </script>
 
 </body>
-</html>
+    </html>
