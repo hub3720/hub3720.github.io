@@ -119,6 +119,21 @@
     cursor: pointer;
   }
 
+  .load-more-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+  }
+
+  .load-more-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 25px;
+    border: 2px solid #000;
+    cursor: pointer;
+    background-color: #fff;
+  }
+
   @media (max-width: 600px) {
     .pokemon-card {
       width: 200px;
@@ -150,11 +165,17 @@
 </div>
 
 <div class="pokemon-container" id="pokemon-container"></div>
+<div class="load-more-container">
+  <button id="load-more" class="load-more-btn">Carregar mais</button>
+</div>
 
 <script>
 const container = document.getElementById('pokemon-container');
 const searchInput = document.getElementById('search');
-const totalPokemons = 150;
+const loadMoreBtn = document.getElementById('load-more');
+const totalPokemons = 1056;
+const batchSize = 150;
+let loadedCount = 0;
 const allPokemons = [];
 
 const typeColors = {
@@ -178,24 +199,20 @@ const typeColors = {
   fairy: "#D685AD"
 };
 
-// Helper para deixar tudo maiúsculo
 function upper(str) {
   return str.toUpperCase();
 }
 
-// Pega Pokémon
 async function fetchPokemon(id) {
   const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
   return await res.json();
 }
 
-// Pega info de espécie para descrição e evolução
 async function fetchPokemonSpecies(id) {
   const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
   return await res.json();
 }
 
-// Cria card
 function createPokemonCard(pokemon) {
   const card = document.createElement('div');
   const primaryType = pokemon.types[0].type.name;
@@ -227,7 +244,6 @@ function createPokemonCard(pokemon) {
   name.textContent = upper(pokemon.name);
   card.appendChild(name);
 
-  // Caixa de detalhes
   const detailBox = document.createElement('div');
   detailBox.classList.add('detail-box');
   detailBox.style.backgroundColor = typeColors[primaryType];
@@ -242,29 +258,24 @@ function createPokemonCard(pokemon) {
   });
   detailBox.appendChild(closeBtn);
 
-  // Clique abre detalhes
   card.addEventListener('click', async () => {
     detailBox.style.display = 'block';
     detailBox.innerHTML = '';
     detailBox.appendChild(closeBtn);
 
     const species = await fetchPokemonSpecies(pokemon.id);
-
-    // Descrição em inglês
     const flavor = species.flavor_text_entries.find(f => f.language.name === "en")?.flavor_text.replace(/\n|\f/g, ' ') || "No description.";
 
-    // Evolução
-    let evolveLevel = "•"; // default se não evolui
+    let evolveLevel = "•";
     if (species.evolution_chain) {
       try {
         const evoRes = await fetch(species.evolution_chain.url);
         const evoData = await evoRes.json();
-        // procura nível mínimo da primeira evolução
         const evoDetails = evoData.chain.evolves_to.find(e => e.species.name === pokemon.name);
         if (evoDetails && evoDetails.evolution_details.length > 0) {
           evolveLevel = evoDetails.evolution_details[0].min_level || "•";
         }
-      } catch(e){evolveLevel = "•";}
+      } catch(e){ evolveLevel = "•"; }
     }
 
     detailBox.innerHTML += `<h4>${upper(pokemon.name)}</h4>`;
@@ -274,17 +285,23 @@ function createPokemonCard(pokemon) {
   });
 
   container.appendChild(card);
-
   setTimeout(() => card.classList.add('show'), 50);
 }
 
-// Carrega Pokémon gradualmente
-async function loadPokemons() {
-  for (let i = 1; i <= totalPokemons; i++) {
+async function loadBatch() {
+  const start = loadedCount + 1;
+  const end = Math.min(loadedCount + batchSize, totalPokemons);
+
+  for (let i = start; i <= end; i++) {
     const pokemon = await fetchPokemon(i);
     allPokemons.push(pokemon);
     createPokemonCard(pokemon);
     await new Promise(res => setTimeout(res, 30));
+  }
+
+  loadedCount += (end - start + 1);
+  if (loadedCount >= totalPokemons) {
+    loadMoreBtn.style.display = 'none';
   }
 }
 
@@ -297,7 +314,11 @@ searchInput.addEventListener('input', () => {
     .forEach(p => createPokemonCard(p));
 });
 
-loadPokemons();
+loadBatch();
+
+loadMoreBtn.addEventListener('click', () => {
+  loadBatch();
+});
 </script>
 
 </body>
