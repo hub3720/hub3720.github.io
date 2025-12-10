@@ -240,9 +240,20 @@ pokedexBtn.addEventListener('click',()=>{
   allPokemons.forEach(p=>createPokemonCard(p,true));
 });
 
+// VOLTAR PARA POKEMONS
+myPokemonBtn.addEventListener('click',()=>{
+  if(selectedPokemon){
+    currentView='game';
+    clearContainer();
+    showSelectedPokemon();
+    pokedexBtn.style.display='block';
+    startGameBtn.style.display='none';
+  }
+});
+
 // INICIALIZA
 loadAllPokemons();
 </script>
 
 </body>
-    </html>
+</html>
