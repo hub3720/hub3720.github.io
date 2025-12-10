@@ -21,7 +21,6 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
 }
 .sidebar h2 { margin-top:0; font-size:18px; }
 .sidebar button { margin:5px 0; padding:8px 10px; width:100%; border:none; border-radius:5px; cursor:pointer; }
-#reset-btn { background:red; color:#fff; display:none; }
 
 /* CONTENT */
 .content { margin-left:200px; flex:1; display:flex; flex-direction:column; }
@@ -75,7 +74,6 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
   <button id="start-game-btn">Start Game</button>
   <button id="pokedex-btn" style="display:none;">Pokedex</button>
   <button id="my-pokemon-btn" style="display:none;">Pokemons</button>
-  <button id="reset-btn">X</button>
 </div>
 
 <div class="content">
@@ -98,7 +96,6 @@ const sidebarToggle=document.getElementById('sidebar-toggle');
 const startGameBtn=document.getElementById('start-game-btn');
 const pokedexBtn=document.getElementById('pokedex-btn');
 const myPokemonBtn=document.getElementById('my-pokemon-btn');
-const resetBtn=document.getElementById('reset-btn');
 const searchContainer=document.getElementById('search-container');
 
 const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"#F7D02C",
@@ -222,7 +219,6 @@ async function loadBatch(){
       container.appendChild(filler);
     }
   }
-  resetBtn.style.display=currentView==='pokedex' ? 'block' : 'none';
 }
 
 searchInput.addEventListener('input',()=>{
@@ -243,10 +239,17 @@ startGameBtn.addEventListener('click',async()=>{
   searchContainer.style.display='none';
   clearContainer();
   loadMoreBtn.style.display='none';
+
+  // ID dos 9 iniciais das 3 primeiras gerações
   const startersIds=[1,4,7,152,155,158,252,255,258]; 
   for(const id of startersIds){
     const p=await fetchPokemon(id);
-    createPokemonCard(p,false,(pokemon)=>{ selectedPokemon=p; myPokemonBtn.style.display='block'; startGameBtn.style.display='none'; showSelectedPokemon(); });
+    createPokemonCard(p,false,(pokemon)=>{ 
+      selectedPokemon=p; 
+      myPokemonBtn.style.display='block'; 
+      startGameBtn.style.display='none'; 
+      showSelectedPokemon();
+    });
   }
 });
 
@@ -267,17 +270,8 @@ pokedexBtn.addEventListener('click',()=>{
   searchContainer.style.display='flex';
   clearContainer();
   loadedCount=0;
-  container.innerHTML='';
-  loadMoreBtn.style.display='block';
-  loadBatch();
-});
-
-// RESET POKEDEX
-resetBtn.addEventListener('click',()=>{
-  loadedCount=0;
   allPokemons.length=0;
   container.innerHTML='';
-  loadMoreBtn.style.display='block';
   loadBatch();
 });
 
@@ -285,4 +279,4 @@ loadBatch();
 </script>
 
 </body>
-                            </html>
+  </html>
