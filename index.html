@@ -39,8 +39,7 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
 @media(max-width:600px){ .pokemon-container { grid-template-columns:1fr; } .content { margin-left:0; } }
 
 /* POKEMON CARD */
-.pokemon-card { width:100%; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; opacity:0; transition:opacity 0.3s; cursor:pointer; }
-.pokemon-card.show { opacity:1; }
+.pokemon-card { width:100%; height:120px; border-radius:15px; display:flex; align-items:center; position:relative; color:#fff; font-weight:bold; text-align:center; padding-left:10px; box-sizing:border-box; cursor:pointer; }
 .pokemon-card img.pokemon-img { width:100px; height:100px; margin-right:10px; }
 .pokemon-number { position:absolute; top:5px; left:10px; font-size:14px; }
 .pokemon-types { position:absolute; top:5px; right:25px; display:flex; gap:3px; }
@@ -51,10 +50,6 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
 .detail-box h4 { margin:0 0 5px 0; font-size:14px; }
 .detail-box p { margin:2px 0; font-size:12px; }
 .close-btn { position:absolute; top:2px; right:2px; background:red; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; }
-
-/* LOAD MORE */
-.load-more-container { display:flex; justify-content:center; margin:20px 0; }
-.load-more-btn { padding:10px 20px; font-size:16px; border-radius:25px; border:2px solid #000; cursor:pointer; background-color:#fff; }
 
 @media (max-width:600px) {
   .pokemon-card { height:100px; padding-left:5px; }
@@ -82,15 +77,11 @@ body { margin:0; font-family:Arial,sans-serif; background-color:#fff; display:fl
     <input type="text" id="search" placeholder="Digite o nome do Pokémon...">
   </div>
   <div class="pokemon-container" id="pokemon-container"></div>
-  <div class="load-more-container">
-    <button id="load-more" class="load-more-btn">Carregar mais</button>
-  </div>
 </div>
 
 <script>
 const container=document.getElementById('pokemon-container');
 const searchInput=document.getElementById('search');
-const loadMoreBtn=document.getElementById('load-more');
 const sidebar=document.getElementById('sidebar');
 const sidebarToggle=document.getElementById('sidebar-toggle');
 const startGameBtn=document.getElementById('start-game-btn');
@@ -105,8 +96,6 @@ const typeColors={ normal:"#A8A77A", fire:"#EE8130", water:"#6390F0", electric:"
   steel:"#B7B7CE", fairy:"#D685AD" };
 
 let currentView='pokedex'; 
-let loadedCount=0;
-const batchSize=150;
 const totalPokemons=386;
 const allPokemons=[];
 let selectedPokemon=null;
@@ -193,31 +182,14 @@ function createPokemonCard(pokemon, showDetails=true, onSelect=null){
   }
 
   container.appendChild(card);
-  setTimeout(()=>card.classList.add('show'),50);
 }
 
-async function loadBatch(){
-  const start=loadedCount+1;
-  const end=Math.min(loadedCount+batchSize,totalPokemons);
-  const delay=30000/batchSize;
-
-  for(let i=start;i<=end;i++){
-    const pokemon=await fetchPokemon(i);
-    allPokemons.push(pokemon);
-    if(currentView==='pokedex') createPokemonCard(pokemon,true);
-    await new Promise(res=>setTimeout(res,delay));
-  }
-
-  loadedCount+=(end-start+1);
-  if(loadedCount>=totalPokemons) loadMoreBtn.style.display='none';
-
-  const remainder=loadedCount%3;
-  if(remainder>0){
-    for(let i=0;i<3-remainder;i++){
-      const filler=document.createElement('div');
-      filler.style.visibility='hidden';
-      container.appendChild(filler);
-    }
+// CARREGA TODOS OS POKEMONS DE UMA VEZ
+async function loadAllPokemons(){
+  for(let i=1;i<=totalPokemons;i++){
+    const p=await fetchPokemon(i);
+    allPokemons.push(p);
+    if(currentView==='pokedex') createPokemonCard(p,true);
   }
 }
 
@@ -227,7 +199,6 @@ searchInput.addEventListener('input',()=>{
   allPokemons.filter(p=>p.name.includes(value)).forEach(p=>createPokemonCard(p,true));
 });
 
-loadMoreBtn.addEventListener('click',()=>{ loadBatch(); });
 sidebarToggle.addEventListener('click',()=>{ sidebar.classList.toggle('show'); });
 
 // START GAME
@@ -238,12 +209,10 @@ startGameBtn.addEventListener('click',async()=>{
   myPokemonBtn.style.display='none';
   searchContainer.style.display='none';
   clearContainer();
-  loadMoreBtn.style.display='none';
 
-  // ID dos 9 iniciais das 3 primeiras gerações
   const startersIds=[1,4,7,152,155,158,252,255,258]; 
   for(const id of startersIds){
-    const p=await fetchPokemon(id);
+    const p=allPokemons.find(x=>x.id===id) || await fetchPokemon(id);
     createPokemonCard(p,false,(pokemon)=>{ 
       selectedPokemon=p; 
       myPokemonBtn.style.display='block'; 
@@ -257,7 +226,6 @@ startGameBtn.addEventListener('click',async()=>{
 function showSelectedPokemon(){
   clearContainer();
   createPokemonCard(selectedPokemon,true);
-  loadMoreBtn.style.display='none';
   searchContainer.style.display='none';
 }
 
@@ -266,17 +234,15 @@ pokedexBtn.addEventListener('click',()=>{
   currentView='pokedex';
   pokedexBtn.style.display='none';
   myPokemonBtn.style.display='block';
-  startGameBtn.style.display='none'; // não reaparece
+  startGameBtn.style.display='none';
   searchContainer.style.display='flex';
   clearContainer();
-  loadedCount=0;
-  allPokemons.length=0;
-  container.innerHTML='';
-  loadBatch();
+  allPokemons.forEach(p=>createPokemonCard(p,true));
 });
 
-loadBatch();
+// INICIALIZA
+loadAllPokemons();
 </script>
 
 </body>
-  </html>
+    </html>
