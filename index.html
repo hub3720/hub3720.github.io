@@ -6,7 +6,7 @@
 <title>Pokédex e Game</title>
 
 <style>
-body {
+body{
   margin:0;
   font-family:Arial,sans-serif;
   background:#fff;
@@ -95,6 +95,7 @@ header{
   justify-content:space-between;
   align-items:center;
   color:#fff;
+  cursor:pointer;
 }
 
 .pokemon-img{
@@ -136,7 +137,7 @@ header{
 <div class="sidebar" id="sidebar">
   <button id="start-game-btn">Start Game</button>
   <button id="pokedex-btn" style="display:none">Pokédex</button>
-  <button id="catch-btn" style="display:none">Catch ’Em All</button>
+  <button id="my-pokemon-btn" style="display:none">Pokémons</button>
 </div>
 
 <div class="content">
@@ -159,7 +160,7 @@ const searchContainer=document.getElementById("search-container");
 
 const startBtn=document.getElementById("start-game-btn");
 const pokedexBtn=document.getElementById("pokedex-btn");
-const catchBtn=document.getElementById("catch-btn");
+const myPokemonBtn=document.getElementById("my-pokemon-btn");
 
 const typeColors={
  fire:"#F08030",water:"#6A9BF0",grass:"#8FCF70",electric:"#F8D030",
@@ -167,8 +168,8 @@ const typeColors={
 };
 
 let allPokemons=[];
+let myPokemons=[];
 let currentView="pokedex";
-let starter=null;
 
 /* MENU */
 menuBtn.onclick=()=>sidebar.classList.toggle("active");
@@ -176,7 +177,10 @@ menuBtn.onclick=()=>sidebar.classList.toggle("active");
 /* API */
 const fetchPokemon=async(id)=> (await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`)).json();
 
-/* CARD */
+/* UTIL */
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+
+/* CARD POKEDEX */
 function createPokedexCard(p){
  const c=document.createElement("div");
  c.className="pokedex-card";
@@ -185,13 +189,29 @@ function createPokedexCard(p){
  c.innerHTML=`
   <div class="pokemon-info">
    <div>#${String(p.id).padStart(3,"0")}</div>
-   <div>${p.name.toUpperCase()}</div>
+   <div>${cap(p.name)}</div>
    <div class="pokemon-types">
     ${p.types.map(t=>`<img class="pokemon-type-img" src="https://raw.githubusercontent.com/duiker101/pokemon-type-svg-icons/master/icons/${t.type.name}.svg">`).join("")}
    </div>
   </div>
   <img class="pokemon-img" src="${p.sprites.other['official-artwork'].front_default}">
  `;
+ container.appendChild(c);
+}
+
+/* CARD GAME */
+function createGameCard(p,click){
+ const c=document.createElement("div");
+ c.className="pokemon-card";
+ c.style.background=typeColors[p.types[0].type.name];
+
+ c.innerHTML=`
+  <div class="pokemon-info">
+   <div>${cap(p.name)}</div>
+  </div>
+  <img class="pokemon-img" src="${p.sprites.other['official-artwork'].front_default}">
+ `;
+ if(click) c.onclick=click;
  container.appendChild(c);
 }
 
@@ -203,11 +223,14 @@ async function load(){
  }
  renderPokedex();
 }
+
+/* RENDER */
 function renderPokedex(){
  currentView="pokedex";
  pageTitle.textContent="PokéDex";
+ searchContainer.style.display="flex";
  container.innerHTML="";
- allPokemons.forEach(p=>createPokedexCard(p));
+ allPokemons.forEach(createPokedexCard);
 }
 
 /* SEARCH */
@@ -215,33 +238,32 @@ searchInput.oninput=()=>{
  const v=searchInput.value.toLowerCase();
  container.innerHTML="";
  allPokemons.filter(p=>p.name.includes(v))
- .forEach(p=>createPokedexCard(p));
+ .forEach(createPokedexCard);
 };
 
 /* START GAME */
 startBtn.onclick=()=>{
  currentView="game";
  pageTitle.textContent="Escolha seu inicial";
- container.innerHTML="";
  searchContainer.style.display="none";
+ container.innerHTML="";
  pokedexBtn.style.display="block";
 
  [1,4,7].forEach(id=>{
   const p=allPokemons.find(x=>x.id===id);
-  const c=document.createElement("div");
-  c.className="pokemon-card";
-  c.style.background=typeColors[p.types[0].type.name];
-  c.innerHTML=`<div>${p.name.toUpperCase()}</div><img class="pokemon-img" src="${p.sprites.other['official-artwork'].front_default}">`;
-  c.onclick=()=>{ starter=p; catchBtn.style.display="block"; openCatch(); };
-  container.appendChild(c);
+  createGameCard(p,()=>{
+    myPokemons.push(p);
+    openWild();
+  });
  });
 };
 
-/* CATCH VIEW */
-function openCatch(){
+/* WILD + CAPTURE */
+function openWild(){
  currentView="catch";
- pageTitle.textContent="Catch ’Em All";
+ pageTitle.textContent="Pokémon Selvagem";
  container.innerHTML="";
+ myPokemonBtn.style.display="block";
 
  const wild=allPokemons[Math.floor(Math.random()*allPokemons.length)];
 
@@ -252,27 +274,39 @@ function openCatch(){
  arena.style.alignItems="center";
  arena.style.justifyContent="center";
 
- const img=document.createElement("img");
- img.src=wild.sprites.other['official-artwork'].front_default;
- img.style.width="250px";
+ arena.innerHTML=`
+  <img src="${wild.sprites.other['official-artwork'].front_default}" width="250">
+  <img id="ball" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" width="60" style="cursor:pointer;margin-top:15px">
+ `;
 
- const ball=document.createElement("img");
- ball.src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png";
- ball.style.width="60px";
- ball.style.cursor="pointer";
+ arena.querySelector("#ball").onclick=()=>{
+  if(Math.random()>0.4){
+   myPokemons.push(wild);
+   alert(`${cap(wild.name)} capturado!`);
+  }else{
+   alert(`${cap(wild.name)} escapou!`);
+  }
+  showMyPokemons();
+ };
 
- ball.onclick=()=>alert(`Você tentou capturar ${wild.name.toUpperCase()}`);
-
- arena.appendChild(img);
- arena.appendChild(ball);
  container.appendChild(arena);
 }
 
-/* SIDEBAR */
+/* MEUS POKEMONS */
+function showMyPokemons(){
+ currentView="mypokemon";
+ pageTitle.textContent="Meus Pokémons";
+ container.innerHTML="";
+ myPokemons.forEach(p=>createGameCard(p));
+}
+
+/* MENU */
 pokedexBtn.onclick=renderPokedex;
-catchBtn.onclick=openCatch;
+myPokemonBtn.onclick=showMyPokemons;
 
 load();
 </script>
+
 </body>
   </html>
+  
