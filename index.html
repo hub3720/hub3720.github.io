@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Buraco Negro Realista Mobile</title>
+    <title>Buraco Negro Leve v3</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #container { width: 100vw; height: 100vh; display: block; }
         #info {
             position: absolute; top: 0; left: 0; width: 100%;
-            padding: 10px 0; color: rgba(255, 255, 255, 0.7); 
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            padding: 10px 0; color: rgba(255, 255, 255, 0.8); 
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
             text-align: center; pointer-events: none; z-index: 10;
         }
-        #info h1 { font-size: 1rem; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
-        #info p { font-size: 0.7rem; margin: 2px 0; }
+        #info h1 { font-size: 1rem; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+        #info p { font-size: 0.75rem; margin: 2px 0; color: #fbac13; }
     </style>
 </head>
 <body>
     <div id="info">
-        <h1>Gargantua Mobile</h1>
+        <h1>Gargantua v3</h1>
         <p>1 Dedo: Girar • 2 Dedos: Zoom (Pinça)</p>
     </div>
     <div id="container"></div>
@@ -30,19 +30,20 @@
         // --- VARIÁVEIS GLOBAIS ---
         let scene, camera, renderer, material;
         
-        // Controle de Câmera
-        let camDist = 18.0; // Distância inicial (mais longe para caber na tela)
-        let camLat = -0.2;  // Inclinação inicial
-        let camLon = 1.5;   // Rotação inicial
+        // Câmera (Começa mais longe como pediu)
+        let camDist = 14.0; 
         
-        // Variáveis de Toque
+        // Rotação
+        let lon = 0.0;
+        let lat = -0.2; 
+
+        // Controle de Toque
         let lastX = 0, lastY = 0;
-        let lastDist = 0; // Para o zoom
+        let lastPinchDist = 0;
         let isDragging = false;
         let isZooming = false;
 
-        // --- GLSL SHADERS (O cérebro da simulação) ---
-
+        // --- SHADER GLSL (Otimizado para não dar tela preta) ---
         const vertexShader = `
             varying vec2 vUv;
             void main() {
@@ -52,274 +53,220 @@
         `;
 
         const fragmentShader = `
-            precision mediump float; // Essencial para Moto e22
+            precision mediump float; // MANTIDO: Essencial para seu celular
 
             uniform float time;
             uniform vec2 resolution;
-            uniform vec3 camPos;     // Posição calculada no JS
-            uniform vec3 camTarget;  // Para onde a câmera olha (0,0,0)
+            uniform vec2 cameraRot; // Rotação X, Y
+            uniform float camDist;  // Zoom
 
-            // Configurações de Qualidade
-            #define MAX_STEPS 35     // Aumentei um pouco para melhorar o disco
-            #define MAX_DIST 50.0
+            // Reduzi um pouco os passos para garantir FPS
+            #define MAX_STEPS 30
+            #define MAX_DIST 40.0
             
-            // Função de Rotação 2D
+            // Função de Rotação Leve
             mat2 rot(float a) {
                 float s = sin(a), c = cos(a);
                 return mat2(c, -s, s, c);
             }
 
-            // --- FUNÇÕES DO DISCO DE ACREÇÃO ---
-            
-            // Gera um padrão de ruído barato (sem textura)
-            float noise(vec3 p) {
-                float n = sin(p.x * 5.0 + time * 2.0) * sin(p.z * 5.0);
-                return n * 0.5 + 0.5;
-            }
-
-            vec3 getDiskColor(vec3 p, float distToCenter) {
-                // Definição do tamanho do disco
-                if(distToCenter < 1.5 || distToCenter > 6.5) return vec3(0.0);
-
-                // Ângulo para mapear a textura ao redor do buraco
-                float angle = atan(p.z, p.x);
-                
-                // --- Efeito Doppler (Realismo) ---
-                // O lado que gira na nossa direção (esquerda da tela geralmente) fica azul/branco
-                // O lado que se afasta fica vermelho/escuro.
-                // Simulamos isso pegando o seno do angulo relativo à câmera.
-                float doppler = sin(angle + 1.0) * 0.5 + 0.5; // +1.0 é um ajuste de fase
-                
-                // Turbulência (Plasma girando)
-                // A velocidade aumenta perto do centro (distToCenter)
-                float speed = time * (10.0 / distToCenter);
-                float turbulence = sin(angle * 10.0 + speed) * cos(distToCenter * 5.0);
-                turbulence = turbulence * 0.5 + 0.5;
-
-                // Cor Base (Gradiente de Temperatura)
-                // Perto do centro = Branco/Azul (Quente)
-                // Longe = Laranja/Vermelho (Frio)
-                vec3 hotColor = vec3(0.8, 0.9, 1.0); // Azulado
-                vec3 coldColor = vec3(1.0, 0.2, 0.05); // Laranja avermelhado
-                
-                float temp = 1.0 - smoothstep(1.5, 6.0, distToCenter);
-                vec3 finalColor = mix(coldColor, hotColor, temp * temp);
-
-                // Aplica turbulência e Doppler
-                float brightness = temp * turbulence;
-                
-                // O Doppler deixa um lado muito mais brilhante (beaming)
-                brightness *= (0.5 + doppler * 2.0); 
-
-                return finalColor * brightness * 2.0;
-            }
-
-            void main() {
-                // Normaliza coordenadas da tela
-                vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / resolution.y;
-
-                // Configura Câmera (LookAt simples)
-                vec3 ro = camPos;
-                vec3 fwd = normalize(camTarget - ro);
-                vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
-                vec3 up = cross(fwd, right);
-                vec3 rd = normalize(fwd + right * uv.x + up * uv.y);
-
-                // Raymarching
+            vec3 scene(vec3 ro, vec3 rd) {
                 vec3 col = vec3(0.0);
                 vec3 p = ro;
-                float t = 0.0;
-                
-                // Acumulador de brilho do disco
-                vec3 accDisk = vec3(0.0);
+                float totalD = 0.0;
+                float glow = 0.0;
 
                 for(int i = 0; i < MAX_STEPS; i++) {
-                    p = ro + rd * t;
-                    float r = length(p);
+                    p = ro + rd * totalD;
+                    float distToCenter = length(p);
 
-                    // 1. Gravidade (Bending Light)
-                    // Desvia a luz em direção ao centro
-                    if (r > 1.0) {
-                        // Força da gravidade simplificada
-                        float force = 0.15 / (r * r); 
-                        rd = normalize(rd - p * force * 0.1); 
+                    // 1. Gravidade (Lente)
+                    if(distToCenter > 0.8) {
+                        // Matemática simplificada da gravidade para não travar
+                        float force = 0.1 / (distToCenter * distToCenter + 0.1); 
+                        rd -= p * force * 0.2; 
+                        rd = normalize(rd);
                     }
 
-                    // 2. Detecção do Disco de Acreção
-                    // O disco está no plano Y=0. Se o raio passa perto de Y=0...
-                    if(abs(p.y) < 0.3) {
-                        float distXZ = length(p.xz);
-                        if(distXZ > 1.4 && distXZ < 7.0) {
-                             // Calcula a cor neste ponto
-                             vec3 diskSample = getDiskColor(p, distXZ);
-                             
-                             // Adiciona ao acumulador (efeito de brilho/glow)
-                             // Quanto mais longe do centro, mais transparente
-                             float transparency = 0.15; 
-                             accDisk += diskSample * transparency;
+                    // 2. Disco de Acreção (Visual Realista Leve)
+                    // Checa se está perto do plano do disco (Y=0)
+                    float distToPlane = abs(p.y);
+                    
+                    if(distToPlane < 0.5) {
+                        float r = length(p.xz); // Distância horizontal
+                        // O disco existe entre raio 1.5 e 5.0
+                        if(r > 1.5 && r < 5.0) {
+                            // Brilho aumenta perto do buraco
+                            float intensity = 0.1 / (distToPlane + 0.05);
+                            
+                            // Gradiente de cor: Laranja no centro, Vermelho na borda
+                            float temp = (5.0 - r) / 3.5; // 1.0 perto, 0.0 longe
+                            glow += intensity * temp * temp * 0.15; 
                         }
                     }
 
-                    // Passo variável (avança rápido longe, devagar perto)
-                    float dt = max(0.1, r * 0.15);
-                    t += dt;
-
-                    // Horizonte de Eventos (O Buraco Negro)
-                    if(r < 1.0) {
-                        col = vec3(0.0); // Absorve tudo (Preto)
-                        break;
-                    }
+                    // Passo do raio (Raymarching)
+                    float step = max(0.15, distToCenter * 0.15);
+                    totalD += step;
                     
-                    // Se foi muito longe, sai do loop
-                    if(t > MAX_DIST) {
-                        // Fundo Estrelado Simples
-                        float stars = pow(fract(sin(dot(rd, vec3(12.9898,78.233,45.543))) * 43758.5453), 20.0);
-                        col = vec3(stars);
-                        break;
-                    }
+                    // Horizonte de Eventos
+                    if(distToCenter < 1.0) return vec3(0.0); // Buraco Negro
+                    if(totalD > MAX_DIST) break;
                 }
 
-                // Combina o buraco negro com o brilho acumulado do disco
-                col += accDisk;
+                // Cor Final do Disco (Laranja Interstellar)
+                vec3 diskColor = vec3(1.2, 0.7, 0.2) * glow * 2.0;
+                
+                // Adiciona um pouco de vermelho nas bordas externas do brilho
+                diskColor += vec3(0.5, 0.1, 0.1) * glow;
 
-                // Tone Mapping simples (evita cores estouradas)
+                col += diskColor;
+                
+                // Fundo Estrelado (Se não bateu no buraco)
+                if(totalD > MAX_DIST) {
+                    // Estrelas falsas usando matemática simples de sobra
+                    float stars = step(0.98, fract(sin(dot(rd.xy, vec3(12.9, 78.2, 45.1))) * 43758.5));
+                    col += vec3(stars);
+                }
+
+                return col;
+            }
+
+            void main() {
+                // Arruma a proporção da tela
+                vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / resolution.y;
+
+                // Câmera: Usa a variável camDist para o Zoom
+                vec3 ro = vec3(0.0, 0.0, -camDist); 
+                vec3 rd = normalize(vec3(uv, 1.2)); // 1.2 define o campo de visão (FOV)
+
+                // Aplica rotação (Controlada pelo dedo)
+                ro.yz *= rot(cameraRot.y);
+                ro.xz *= rot(cameraRot.x);
+                rd.yz *= rot(cameraRot.y);
+                rd.xz *= rot(cameraRot.x);
+
+                // Renderiza
+                vec3 col = scene(ro, rd);
+
+                // Tone Mapping (Deixa a cor mais bonita e menos estourada)
                 col = col / (1.0 + col);
 
                 gl_FragColor = vec4(col, 1.0);
             }
         `;
 
-        // --- INICIALIZAÇÃO JS ---
-
+        // --- LÓGICA DO JAVASCRIPT ---
         function init() {
             const container = document.getElementById('container');
-
             renderer = new THREE.WebGLRenderer({ antialias: false });
-            renderer.setPixelRatio(1); // Mantém leve para o celular
+            renderer.setPixelRatio(1); // MANTIDO: Leveza
             renderer.setSize(window.innerWidth, window.innerHeight);
             container.appendChild(renderer.domElement);
 
             scene = new THREE.Scene();
-            
-            // Usamos uma câmera ortográfica dummy apenas para renderizar o quadrado da tela
-            // A câmera "real" é calculada matematicamente dentro do Shader
-            const dummyCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
             const geometry = new THREE.PlaneGeometry(2, 2);
+            
             material = new THREE.ShaderMaterial({
                 vertexShader: vertexShader,
                 fragmentShader: fragmentShader,
                 uniforms: {
                     time: { value: 0 },
                     resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-                    camPos: { value: new THREE.Vector3(0, 0, 20) },
-                    camTarget: { value: new THREE.Vector3(0, 0, 0) }
+                    cameraRot: { value: new THREE.Vector2(lon, lat) },
+                    camDist: { value: camDist } // Passa o zoom para o shader
                 }
             });
 
-            const mesh = new THREE.Mesh(geometry, material);
-            scene.add(mesh);
+            scene.add(new THREE.Mesh(geometry, material));
+            
+            // Câmera dummy (o shader faz o trabalho real)
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-            // Listeners
-            window.addEventListener('resize', onWindowResize, false);
-            setupControls();
+            window.addEventListener('resize', () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+            });
 
-            // Inicia loop
+            setupTouchControls();
             animate();
         }
 
-        function onWindowResize() {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-        }
-
-        // --- CONTROLES DE TOQUE (ZOOM E ROTAÇÃO) ---
-        function setupControls() {
+        function setupTouchControls() {
             const el = document.getElementById('container');
 
-            // --- PC (Mouse) ---
-            el.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-            window.addEventListener('mouseup', () => isDragging = false);
-            window.addEventListener('mousemove', e => {
-                if(isDragging) handleRotate(e.clientX, e.clientY);
-            });
-            el.addEventListener('wheel', e => {
-                camDist += e.deltaY * 0.01;
-                camDist = Math.max(5.0, Math.min(40.0, camDist)); // Limites do zoom
-            });
+            // Função helper para distância entre dois dedos
+            const getDist = (e) => {
+                return Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            };
 
-            // --- MOBILE (Touch) ---
             el.addEventListener('touchstart', e => {
                 if(e.touches.length === 1) {
-                    isDragging = true;
-                    isZooming = false;
-                    lastX = e.touches[0].clientX;
-                    lastY = e.touches[0].clientY;
+                    isDragging = true; isZooming = false;
+                    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
                 } else if(e.touches.length === 2) {
-                    isZooming = true;
-                    isDragging = false;
-                    // Calcula distância inicial entre os dedos
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    lastDist = Math.sqrt(dx*dx + dy*dy);
+                    isZooming = true; isDragging = false;
+                    lastPinchDist = getDist(e);
                 }
             }, { passive: false });
 
             el.addEventListener('touchmove', e => {
-                e.preventDefault(); // Impede scroll da tela
+                e.preventDefault(); 
                 
+                // ROTAÇÃO (1 Dedo)
                 if(isDragging && e.touches.length === 1) {
-                    handleRotate(e.touches[0].clientX, e.touches[0].clientY);
+                    let dx = e.touches[0].clientX - lastX;
+                    let dy = e.touches[0].clientY - lastY;
+                    lon -= dx * 0.01; 
+                    lat += dy * 0.01;
+                    lat = Math.max(-1.5, Math.min(1.5, lat)); // Trava vertical
+                    
+                    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
                 } 
+                
+                // ZOOM (2 Dedos - Pinça)
                 else if(isZooming && e.touches.length === 2) {
-                    // Lógica de Zoom (Pinça)
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const currentDist = Math.sqrt(dx*dx + dy*dy);
+                    let currentDist = getDist(e);
+                    let delta = lastPinchDist - currentDist;
                     
-                    const delta = lastDist - currentDist;
-                    camDist += delta * 0.05; // Sensibilidade do zoom
-                    camDist = Math.max(5.0, Math.min(40.0, camDist)); // Limites
+                    camDist += delta * 0.05; // Velocidade do zoom
+                    camDist = Math.max(5.0, Math.min(40.0, camDist)); // Limites min/max
                     
-                    lastDist = currentDist;
+                    lastPinchDist = currentDist;
                 }
             }, { passive: false });
 
-            window.addEventListener('touchend', () => { isDragging = false; isZooming = false; });
-        }
-
-        function handleRotate(x, y) {
-            const dx = x - lastX;
-            const dy = y - lastY;
+            el.addEventListener('touchend', () => { isDragging = false; isZooming = false; });
             
-            camLon -= dx * 0.005;
-            camLat += dy * 0.005;
-            
-            // Trava para não virar a câmera de cabeça para baixo totalmente
-            camLat = Math.max(-1.5, Math.min(1.5, camLat));
-            
-            lastX = x;
-            lastY = y;
+            // Suporte mouse PC
+            el.addEventListener('mousedown', e => { isDragging=true; lastX=e.clientX; lastY=e.clientY; });
+            window.addEventListener('mouseup', () => isDragging=false);
+            window.addEventListener('mousemove', e => {
+                if(isDragging) {
+                    lon -= (e.clientX - lastX)*0.005; 
+                    lat += (e.clientY - lastY)*0.005;
+                    lat = Math.max(-1.5, Math.min(1.5, lat));
+                    lastX = e.clientX; lastY = e.clientY;
+                }
+            });
+            el.addEventListener('wheel', e => {
+                camDist += e.deltaY * 0.01;
+                camDist = Math.max(5.0, Math.min(40.0, camDist));
+            });
         }
 
         function animate() {
             requestAnimationFrame(animate);
-
-            const time = performance.now() * 0.001;
-            material.uniforms.time.value = time;
-
-            // Atualiza posição da câmera com base na rotação e zoom
-            // Converte coordenadas esféricas (lat, lon, dist) para cartesianas (x, y, z)
-            const cx = camDist * Math.cos(camLat) * Math.sin(camLon);
-            const cy = camDist * Math.sin(camLat);
-            const cz = camDist * Math.cos(camLat) * Math.cos(camLon);
-
-            material.uniforms.camPos.value.set(cx, cy, cz);
-
-            renderer.render(scene, camera); // Na verdade renderiza o "dummyCam"
+            material.uniforms.time.value += 0.01;
+            material.uniforms.cameraRot.value.set(lon, lat);
+            material.uniforms.camDist.value = camDist;
+            renderer.render(scene, camera);
         }
 
         init();
     </script>
 </body>
-</html>
+    </html>
