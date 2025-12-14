@@ -3,7 +3,6 @@
     "olá", "oi", "saudações", "bom", "dia", "tarde", "noite", 
     "como", "você", "está", "tudo", "bem", "funciona", "o", "que", 
     "é", "seu", "nome", "qual", "tchau", "adeus", "até", "logo" 
-    /* ... 77 palavras a mais para completar 100 termos (Bag-of-Words) ... */
   ],
   "tags": ["saudacao", "status", "funcionalidade", "identidade", "despedida"],
   "intents": [
@@ -14,9 +13,6 @@
     {"tag": "despedida", "patterns": ["tchau", "adeus", "até logo"], "responses": ["Até mais!", "Tchau, volte sempre!"]}
   ],
   
-  // --- Pesos e Bias (Estrutura da Rede) ---
-  // Apenas a estrutura é definida aqui. No projeto real, estes seriam o resultado do treinamento.
-  // Usaremos valores aleatórios para simular uma rede "treinada".
   
   "weights_h1": [],
   "bias_h1": [],
