@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -95,7 +94,6 @@
 
     <!-- Área principal -->
     <div class="flex-1 flex flex-col">
-        <!-- Header mobile -->
         <div class="lg:hidden flex items-center justify-between p-4 border-b border-grok-border">
             <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-lg hover:bg-white/10">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -104,7 +102,6 @@
             <div class="w-10"></div>
         </div>
 
-        <!-- Mensagens -->
         <div id="messages" class="flex-1 overflow-y-auto px-4 py-8">
             <div class="max-w-3xl mx-auto w-full">
                 <template x-for="(msg, index) in messages" :key="index">
@@ -118,7 +115,6 @@
                     </div>
                 </template>
 
-                <!-- Typing -->
                 <div x-show="isTyping" class="chat-message flex justify-start">
                     <div class="max-w-2xl w-full">
                         <div class="px-5 py-4 bg-grok-assistant message-assistant rounded-3xl">
@@ -129,7 +125,6 @@
             </div>
         </div>
 
-        <!-- Input fixo na parte inferior (como no Grok) -->
         <div class="border-t border-grok-border px-4 py-4">
             <div class="max-w-3xl mx-auto">
                 <div class="relative">
@@ -157,10 +152,10 @@
     <script>
         function chatApp() {
             return {
-                hfToken: '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',
+                // === SUA CHAVE (REVOKE ESSA AGORA!) ===
+                groqKey: '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',
 
-                // Mensagem inicial limpa, sem system prompt forçado
-                chatHistory: JSON.parse(localStorage.getItem('orbChats') || '[{"title":"Nova conversa","messages":[{"role":"assistant","content":"Olá! Eu sou o **ORB**.\\n\\nModelo avançado com respostas rápidas, código destacado e interface minimalista.\\n\\nNo que você está pensando?"}]}]'),
+                chatHistory: JSON.parse(localStorage.getItem('orbChats') || '[{"title":"Nova conversa","messages":[{"role":"assistant","content":"Olá! Eu sou o **ORB**.\\n\\nAgora rodando com o poderoso gpt-oss-120b da OpenAI via Groq – respostas ultra inteligentes e rápidas! 🚀\\n\\nNo que você está pensando hoje?"}]}]'),
                 currentChatIndex: 0,
                 messages: [],
                 input: '',
@@ -179,7 +174,7 @@
                 newChat() {
                     const newChat = { 
                         title: 'Nova conversa', 
-                        messages: [{ role: 'assistant', content: 'Olá! Eu sou o ORB.\n\nComo posso ajudar você hoje?' }] 
+                        messages: [{ role: 'assistant', content: 'Olá! Eu sou o ORB, agora com gpt-oss-120b.\n\nComo posso ajudar você hoje?' }] 
                     };
                     this.chatHistory.push(newChat);
                     this.currentChatIndex = this.chatHistory.length - 1;
@@ -230,12 +225,12 @@
                 },
 
                 async sendMessage() {
-                    if (!this.input.trim() || this.isTyping) return;
+                    if (!this.input.trim() || this.isTyping || !this.groqKey || this.groqKey.includes('SUA_CHAVE')) return;
 
                     const userMessage = this.input.trim();
                     this.messages.push({ role: 'user', content: userMessage });
                     if (this.messages.length === 2) {
-                        this.chatHistory[this.currentChatIndex].title = userMessage.substring(0, 35) + '...';
+                        this.chatHistory[this.currentChatIndex].title = userMessage.substring(0, 35) + (userMessage.length > 35 ? '...' : '');
                     }
 
                     this.input = '';
@@ -254,22 +249,25 @@
                     let fullReply = "";
 
                     try {
-                        const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
+                        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                             method: 'POST',
                             headers: {
-                                'Authorization': `Bearer ${this.hfToken}`,
+                                'Authorization': `Bearer ${this.groqKey}`,
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                model: "Qwen/Qwen2.5-72B-Instruct",
+                                model: "openai/gpt-oss-120b",  // <--- AQUI O MELHOR MODELO!
                                 messages: messagesForAPI,
-                                max_tokens: 2048,
+                                max_tokens: 4096,              // <--- MAIS ESPAÇO PRA RESPOSTAS LONGAS
                                 temperature: 0.7,
                                 stream: true
                             })
                         });
 
-                        if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                        if (!response.ok) {
+                            const err = await response.text();
+                            throw new Error(err || 'Erro na API Groq');
+                        }
 
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder();
@@ -294,13 +292,13 @@
                                             this.scrollToBottom();
                                             this.highlightCode();
                                         });
-                                        await new Promise(r => setTimeout(r, 15));
                                     } catch (e) {}
                                 }
                             }
                         }
                     } catch (err) {
-                        fullReply = `Erro de conexão. Tente novamente.`;
+                        console.error(err);
+                        fullReply = `Erro: Não foi possível conectar à Groq. Verifique sua chave.`;
                     }
 
                     this.messages[tempIndex].content = fullReply;
@@ -316,4 +314,4 @@
         }
     </script>
 </body>
-    </html>
+                                </html>
