@@ -1,135 +1,165 @@
-<!DOCTYPE html><html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portfólio</title>  <!-- Fonte clássica elegante -->  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORB</title>
 
-    :root {
-      --paper-base: #f4f0e6;
-      --paper-edge: #e0d6c2;
-      --ink: #1a1a1a;
-      --coffee: rgba(120, 80, 40, 0.25);
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        blackpure: '#000000',
+        whitepure: '#ffffff',
+        grayline: '#1f1f1f'
+      },
+      fontFamily: {
+        sans: ['"Söhne"', '"Segoe UI"', 'Helvetica', 'Arial', 'sans-serif']
+      }
     }
+  }
+}
+</script>
 
-    body {
-      font-family: 'Playfair Display', serif;
-      background: #111;
-      color: var(--ink);
-      display: flex;
-      justify-content: center;
-      padding: 60px 20px;
-    }
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    .book-page {
-      max-width: 900px;
-      background:
-        radial-gradient(circle at 20% 30%, var(--coffee) 0%, transparent 45%),
-        radial-gradient(circle at 80% 70%, var(--coffee) 0%, transparent 50%),
-        linear-gradient(135deg, var(--paper-base), var(--paper-edge));
-      padding: 80px 70px;
-      position: relative;
-      box-shadow: inset 0 0 60px rgba(0,0,0,0.15), 0 25px 50px rgba(0,0,0,0.6);
-      animation: fadeIn 1.4s ease;
-    }
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-    .book-page::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="5"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.045"/></svg>');
-      pointer-events: none;
-    }
+<style>
+body {
+  background:#000;
+  color:#fff;
+  font-family:'Söhne','Segoe UI',sans-serif;
+}
 
-    header h1 { font-size: 3.1rem; margin-bottom: 8px; }
-    header p { font-style: italic; opacity: 0.75; }
+.chat-message {
+  margin: 3rem 0;
+}
 
-    section {
-      margin-top: 90px;
-      opacity: 0;
-      transform: translateY(35px);
-      transition: all 0.9s ease;
-    }
+.message-user,
+.message-assistant {
+  border-radius: 14px;
+  line-height: 1.65;
+}
 
-    section.visible { opacity: 1; transform: translateY(0); }
+.message-user {
+  border: 1px solid #fff;
+}
 
-    h2 {
-      font-size: 2rem;
-      border-bottom: 1px solid rgba(0,0,0,0.25);
-      padding-bottom: 10px;
-      margin-bottom: 30px;
-    }
+.message-assistant {
+  border: 1px solid #1f1f1f;
+}
 
-    .project { margin-bottom: 45px; }
-    .project h3 { font-size: 1.35rem; margin-bottom: 6px; }
-    .project p { line-height: 1.75; }
+textarea {
+  caret-color: white;
+}
 
-    footer {
-      position: absolute;
-      bottom: 25px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 0.85rem;
-      opacity: 0.6;
-    }
+pre, code {
+  background:#000;
+  border:1px solid #1f1f1f;
+  border-radius:10px;
+}
 
-    footer::before {
-      content: "— Página 1 —";
-    }
+.avatar {
+  width:32px;
+  height:32px;
+  border:1px solid #fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:bold;
+  color:#000;
+  background:#fff;
+}
+</style>
+</head>
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.97); }
-      to { opacity: 1; transform: scale(1); }
-    }
+<body class="flex h-screen bg-blackpure" x-data="chatApp()">
 
-    @media (max-width: 700px) {
-      .book-page { padding: 50px 35px; }
-      header h1 { font-size: 2.3rem; }
-    }
-  </style></head>
-<body>  <main class="book-page"><header>
-  <h1>Seu Nome</h1>
-  <p>Programação, lógica e construção de sistemas</p>
-</header>
+<!-- Sidebar -->
+<div class="w-64 border-r border-whitepure p-4 hidden lg:block">
+  <button @click="newChat()" class="w-full py-3 border border-whitepure text-white hover:bg-white hover:text-black transition">
+    Nova conversa
+  </button>
+</div>
 
-<section id="projects">
-  <h2>Projetos</h2>
+<!-- Main -->
+<div class="flex-1 flex flex-col">
 
-  <div class="project">
-    <h3>Projeto I</h3>
-    <p>Descrição do projeto, tecnologias utilizadas e a ideia principal por trás dele. Texto direto, quase como um registro histórico.</p>
+<div id="messages" class="flex-1 overflow-y-auto px-6 py-10">
+  <div class="max-w-3xl mx-auto">
+
+    <template x-for="(msg,index) in messages" :key="index">
+      <div class="chat-message flex" :class="msg.role==='user'?'justify-end':'justify-start'">
+
+        <div class="flex max-w-2xl">
+          <template x-if="msg.role==='assistant'">
+            <div class="mr-4">
+              <div class="avatar">O</div>
+            </div>
+          </template>
+
+          <div class="px-6 py-5"
+            :class="msg.role==='user'
+              ? 'message-user text-white bg-black'
+              : 'message-assistant bg-black text-white'"
+            x-html="msg.role==='assistant'
+              ? renderMarkdown(msg.content)
+              : msg.content.replace(/\n/g,'<br>')">
+          </div>
+
+        </div>
+      </div>
+    </template>
+
   </div>
+</div>
 
-  <div class="project">
-    <h3>Projeto II</h3>
-    <p>Outro projeto relevante, explicando o problema resolvido e a abordagem técnica.</p>
+<!-- Input -->
+<div class="px-6 pb-8">
+  <div class="max-w-3xl mx-auto border border-whitepure rounded-xl flex items-end">
+
+    <textarea x-model="input"
+      @keydown.enter.prevent="sendMessage"
+      placeholder="Escreva para o ORB..."
+      rows="1"
+      class="flex-1 bg-black text-white px-5 py-4 resize-none outline-none">
+    </textarea>
+
+    <button @click="sendMessage"
+      class="border-l border-whitepure px-5 py-4 hover:bg-white hover:text-black transition">
+      ➤
+    </button>
+
   </div>
-</section>
+</div>
 
-<section id="about">
-  <h2>Sobre</h2>
-  <p>
-    Texto sobre você, sua relação com a programação, como começou e o que busca construir. Pense nisso como uma página de diário técnico.
-  </p>
-</section>
+</div>
 
-<footer>
-  <p>Portfólio pessoal — escrito como se fosse um livro antigo.</p>
-</footer>
+<script>
+function chatApp(){
+return{
+messages:[
+{role:'assistant',content:'Olá. Eu sou o **ORB**.\n\nMinimalismo absoluto. Preto, branco e silêncio.'}
+],
+input:'',
 
-  </main>  <script>
-    // ANIMAÇÃO SUAVE AO SCROLL
-    const sections = document.querySelectorAll('section');
+renderMarkdown(t){
+return marked.parse(t)
+},
 
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-        }
-      });
-    }, { threshold: 0.2 });
+sendMessage(){
+if(!this.input.trim())return
+this.messages.push({role:'user',content:this.input})
+this.input=''
+this.messages.push({role:'assistant',content:'Resposta simulada do ORB.'})
+}
+}}
+</script>
 
-    sections.forEach(section => observer.observe(section));
-  </script></body>
-    </html>
+</body>
+      </html>
