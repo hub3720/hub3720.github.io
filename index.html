@@ -1,386 +1,258 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ORB</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gustavo | gust.py — Senior Full-Stack Developer</title>
+  <meta name="description" content="Senior Full-Stack Developer | Bots, IA & Web | São Paulo"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --text: #e0e0e0;
+      --accent: #ffffff;
+      --card: #1a1a1a;
+      --border: #333;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: row;
+    }
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'true-black': '#000000',
-                        'main-bg': '#000000',
-                        'assistant': '#111111',
-                        'user': '#ffffff',
-                        'input-bg': '#111111',
-                        'border-gray': '#333333',
-                    },
-                    fontFamily: {
-                        sans: ['"Söhne"', '"Segoe UI"', 'Helvetica', 'Arial', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
+    /* Sidebar */
+    .sidebar {
+      width: 300px;
+      height: 100vh;
+      position: fixed;
+      background: var(--bg);
+      padding: 60px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border-right: 1px solid var(--border);
+    }
+    .sidebar h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.8rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .sidebar h2 {
+      font-size: 1.1rem;
+      color: #aaa;
+      margin-bottom: 30px;
+      font-weight: 500;
+    }
+    .sidebar p {
+      font-size: 0.95rem;
+      color: #888;
+      margin: 8px 0;
+    }
+    .sidebar .links a {
+      display: block;
+      color: var(--text);
+      text-decoration: none;
+      margin: 20px 0;
+      font-weight: 500;
+      transition: 0.3s;
+    }
+    .sidebar .links a:hover {
+      color: var(--accent);
+      transform: translateX(8px);
+    }
 
-    <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    /* Main content */
+    .main {
+      margin-left: 300px;
+      padding: 80px 60px;
+      max-width: 900px;
+      flex: 1;
+    }
+    .main h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 30px;
+      font-weight: 600;
+      border-left: 4px solid var(--accent);
+      padding-left: 15px;
+    }
+    .main p {
+      font-size: 1.05rem;
+      margin-bottom: 20px;
+      color: #ccc;
+    }
 
-    <!-- Marked.js -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    /* Projetos */
+    .projects {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+    .project {
+      background: var(--card);
+      padding: 40px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: 0.3s;
+    }
+    .project:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+    }
+    .project h4 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      color: var(--accent);
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    .project p {
+      font-size: 1rem;
+      color: #bbb;
+      margin: 10px 0;
+    }
+    .project strong {
+      color: var(--text);
+      font-weight: 600;
+    }
 
-    <!-- Highlight.js -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    /* Skills */
+    .skills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .skill {
+      background: var(--card);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      transition: 0.3s;
+    }
+    .skill:hover {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
 
-    <style>
-        html, body { height: 100%; margin: 0; overflow: hidden; background: #000; }
-        .message-user { border-bottom-right-radius: 4px; }
-        .message-assistant { border-bottom-left-radius: 4px; }
-        .typing-dots span {
-            @apply inline-block w-2 h-2 bg-gray-500 rounded-full mx-0.5;
-            animation: typing 1.5s infinite ease-in-out;
-        }
-        .typing-dots span:nth-child(1) { animation-delay: 0s; }
-        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-6px); opacity: 1; }
-        }
-        pre { background: #0a0a0a; border-radius: 8px; }
-        .avatar { @apply w-9 h-9 rounded-full bg-white flex items-center justify-center text-black font-bold text-xl; }
-    </style>
+    /* Contato */
+    .contact p {
+      font-size: 1.1rem;
+      margin: 15px 0;
+    }
+    .contact a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .contact a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsivo */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        padding: 50px 30px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .main { margin-left: 0; padding: 40px 30px; }
+    }
+  </style>
 </head>
-<body class="bg-true-black text-white flex flex-col h-screen" x-data="chatApp()">
+<body>
 
-    <!-- Top bar -->
-    <div class="flex items-center justify-between p-4 border-b border-border-gray flex-shrink-0">
-        <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-lg hover:bg-white/10">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-        </button>
-        <h1 class="text-lg font-bold">ORB</h1>
-        <button @click="newChat()" class="p-2 rounded-lg hover:bg-white/10">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        </button>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h1>gust.py</h1>
+    <h2>Senior Full-Stack Developer</h2>
+    <p>São Paulo, SP</p>
+    <p>Inglês Fluente</p>
+    <div class="links">
+      <a href="https://github.com/hub3720" target="_blank">GitHub</a>
+      <a href="mailto:gustavoffj8@gmail.com">Email</a>
     </div>
+  </div>
 
-    <!-- Sidebar drawer -->
-    <div :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" 
-         class="fixed inset-y-0 left-0 z-50 w-72 bg-true-black border-r border-border-gray transition-transform duration-300 ease-in-out">
-        <div class="flex flex-col h-full">
-            <div class="p-4 border-b border-border-gray">
-                <button @click="newChat()" class="w-full flex items-center justify-center gap-3 py-3 px-4 border border-border-gray rounded-xl hover:bg-white/10 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    <span>Nova conversa</span>
-                </button>
-            </div>
+  <!-- Main -->
+  <div class="main">
 
-            <div class="flex-1 overflow-y-auto">
-                <template x-for="(chat, index) in chatHistory" :key="index">
-                    <div class="group flex items-center px-4 py-2">
-                        <button @click="loadChat(index); sidebarOpen = false" 
-                                :class="currentChatIndex === index ? 'bg-white/10' : 'hover:bg-white/10'"
-                                class="flex-1 text-left py-2 truncate">
-                            <span x-text="chat.title"></span>
-                        </button>
-                        <button @click.stop="deleteChat(index)" class="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded">
-                            <svg class="w-5 h-5 text-gray-500 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                    </div>
-                </template>
-            </div>
+    <section>
+      <h3>Sobre mim</h3>
+      <p>Senior full-stack com mais de 3 anos de experiência, especializado em bots avançados, integrações com inteligência artificial e aplicações web de alta performance.</p>
+      <p>Domino Python, JavaScript/TypeScript, React, FastAPI, Node.js, Three.js e diversas outras tecnologias. Desenvolvi sistemas MMO complexos, simuladores espaciais e ferramentas de IA que destacam precisão e escala.</p>
+      <p>Foco em entrega rápida, código limpo e soluções robustas que funcionam perfeitamente.</p>
+    </section>
 
-            <div class="p-4 border-t border-border-gray">
-                <div class="flex items-center gap-3">
-                    <div class="avatar">O</div>
-                    <div class="font-semibold">ORB</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <section class="projects">
+      <h3>Projetos Destacados</h3>
 
-    <div x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-black/70 z-40"></div>
+      <div class="project">
+        <h4>Bot Pokémon MMO Super Avançado</h4>
+        <p>Sistema completo de MMO: mapa dinâmico, batalhas em tempo real, níveis, economia, NPCs e persistência de dados.</p>
+        <p><strong>Tecnologias:</strong> Python, FastAPI, WebSocket, PostgreSQL, JavaScript</p>
+        <p><strong>Meu papel:</strong> Desenvolvimento completo (único dev)</p>
+        <p><strong>+6.000 linhas</strong> | Funcionando perfeitamente</p>
+      </div>
 
-    <!-- Área de mensagens (scrollável) -->
-    <div id="messages" class="flex-1 overflow-y-auto px-4 pb-4">
-        <div class="max-w-3xl mx-auto w-full py-4">
-            <template x-for="(msg, index) in messages" :key="index">
-                <div class="my-8 flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                    <div class="flex max-w-full">
-                        <template x-if="msg.role === 'assistant'">
-                            <div class="mr-3 mt-1 flex-shrink-0">
-                                <div class="avatar">O</div>
-                            </div>
-                        </template>
-                        <div class="px-5 py-4 rounded-3xl text-base leading-relaxed"
-                             :class="msg.role === 'user' ? 'bg-user message-user text-black' : 'bg-assistant message-assistant'">
-                            <div x-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content.replace(/\n/g, '<br>')"></div>
-                        </div>
-                    </div>
-                </div>
-            </template>
+      <div class="project">
+        <h4>Pokedex Inteligente com IA (Groq 120b)</h4>
+        <p>Pokedex moderna com busca inteligente, análise via IA, sugestões de times e integração com API oficial.</p>
+        <p><strong>Tecnologias:</strong> React, Python, Groq API, Tailwind</p>
+        <p><strong>Meu papel:</strong> Desenvolvimento completo</p>
+        <p><strong>+3.000 linhas</strong> | Integração fluida com IA de ponta</p>
+      </div>
 
-            <div x-show="isTyping" class="my-8 flex justify-start">
-                <div class="flex">
-                    <div class="mr-3 mt-1 flex-shrink-0">
-                        <div class="avatar">O</div>
-                    </div>
-                    <div class="px-5 py-4 bg-assistant message-assistant rounded-3xl">
-                        <div class="text-sm text-gray-400 mb-2">ORB está pensando...</div>
-                        <div class="typing-dots"><span></span><span></span><span></span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+      <div class="project">
+        <h4>Space Engine Fan-Made</h4>
+        <p>Simulador espacial procedural com geração de planetas, sistemas solares e visualização 3D realista.</p>
+        <p><strong>Tecnologias:</strong> Python, Three.js, WebGL, NumPy</p>
+        <p><strong>Meu papel:</strong> Desenvolvimento completo</p>
+        <p><strong>+4.000 linhas</strong> | Alta performance</p>
+      </div>
+    </section>
 
-    <!-- Input fixo inferior (não sobrepõe) -->
-    <div class="border-t border-border-gray bg-main-bg px-4 py-3 flex-shrink-0">
-        <div class="max-w-3xl mx-auto">
-            <div class="bg-input-bg rounded-3xl border border-border-gray overflow-hidden flex items-center relative">
-                <textarea x-model="input" @input="autoResize" @keydown.enter.shift.prevent="" @keydown.enter.prevent="sendMessage"
-                          placeholder="Envie uma mensagem..."
-                          class="flex-1 bg-transparent px-4 py-3 text-white resize-none outline-none max-h-32 pl-14"
-                          rows="1" x-ref="textarea"></textarea>
+    <section>
+      <h3>Skills</h3>
+      <div class="skills">
+        <span class="skill">Python (Expert)</span>
+        <span class="skill">JavaScript / TypeScript</span>
+        <span class="skill">React / Next.js</span>
+        <span class="skill">FastAPI / Flask</span>
+        <span class="skill">Inteligência Artificial</span>
+        <span class="skill">Bots & Automação</span>
+        <span class="skill">Three.js / WebGL</span>
+        <span class="skill">WebSocket & APIs</span>
+        <span class="skill">UI/UX Design</span>
+        <span class="skill">Inglês Fluente</span>
+      </div>
+    </section>
 
-                <!-- Ícone de modos (cérebro SVG) -->
-                <button @click="modeDropdownOpen = !modeDropdownOpen" 
-                        class="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition hover:bg-white/10">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                        <path d="M12 14c3.5 0 6.5-2.5 8-5.5-1.5-3-4.5-5.5-8-5.5s-6.5 2.5-8 5.5c1.5 3 4.5 5.5 8 5.5z"/>
-                        <circle cx="12" cy="10" r="3"/>
-                        <path d="M3 19c2-3 5-5 9-5s7 2 9 5"/>
-                    </svg>
-                </button>
+    <section class="contact">
+      <h3>Contato</h3>
+      <p>Email: <a href="mailto:gustavoffj8@gmail.com">gustavoffj8@gmail.com</a></p>
+      <p>GitHub: <a href="https://github.com/hub3720" target="_blank">github.com/hub3720</a></p>
+      <p>Disponível para projetos freelance e colaborações internacionais.</p>
+    </section>
 
-                <!-- Dropdown de modos -->
-                <div x-show="modeDropdownOpen" 
-                     @click.away="modeDropdownOpen = false"
-                     class="absolute left-3 bottom-full mb-2 bg-assistant border border-border-gray rounded-xl shadow-lg py-2 w-48 z-50">
-                    <div class="px-4 py-2 text-xs text-gray-400 uppercase">Modo de raciocínio</div>
-                    <button @click="setMode('low'); modeDropdownOpen = false" class="w-full text-left px-4 py-2 hover:bg-white/10 flex items-center justify-between">
-                        <span>Rápido</span>
-                        <span x-show="currentMode === 'low'" class="text-blue-400">✓</span>
-                    </button>
-                    <button @click="setMode('medium'); modeDropdownOpen = false" class="w-full text-left px-4 py-2 hover:bg-white/10 flex items-center justify-between">
-                        <span>Inteligente</span>
-                        <span x-show="currentMode === 'medium'" class="text-blue-400">✓</span>
-                    </button>
-                    <button @click="setMode('high'); modeDropdownOpen = false" class="w-full text-left px-4 py-2 hover:bg-white/10 flex items-center justify-between">
-                        <span>Profundo</span>
-                        <span x-show="currentMode === 'high'" class="text-blue-400">✓</span>
-                    </button>
-                </div>
+  </div>
 
-                <!-- Botão enviar -->
-                <button @click="sendMessage" :disabled="!input.trim() || isTyping"
-                        class="px-4 py-3 transition hover:bg-white/10"
-                        :class="input.trim() && !isTyping ? '' : 'opacity-40 cursor-not-allowed'">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11l7-7 7 7M5 19l7-7 7 7"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function chatApp() {
-            return {
-                groqKey: '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',
-
-                chatHistory: JSON.parse(localStorage.getItem('orbChats') || '[{"title":"Nova conversa","messages":[{"role":"assistant","content":"Olá! Eu sou o **ORB** 🚀\\n\\nAgora com busca na internet, interface full screen e gpt-oss-120b ultra inteligente!\\n\\nPergunte qualquer coisa – eu busco na web se precisar.\\n\\nNo que você está pensando?"}]}]'),
-                currentChatIndex: 0,
-                messages: [],
-                input: '',
-                isTyping: false,
-                sidebarOpen: false,
-                modeDropdownOpen: false,
-                currentMode: 'medium',
-
-                init() {
-                    this.loadChat(0);
-                    window.addEventListener('beforeunload', () => this.saveChats());
-                },
-
-                setMode(mode) {
-                    this.currentMode = mode;
-                },
-
-                saveChats() {
-                    localStorage.setItem('orbChats', JSON.stringify(this.chatHistory));
-                },
-
-                newChat() {
-                    const newChat = { 
-                        title: 'Nova conversa', 
-                        messages: [{ role: 'assistant', content: 'Olá! Eu sou o ORB.\n\nComo posso ajudar?' }] 
-                    };
-                    this.chatHistory.push(newChat);
-                    this.currentChatIndex = this.chatHistory.length - 1;
-                    this.loadChat(this.currentChatIndex);
-                    this.sidebarOpen = false;
-                    this.saveChats();
-                },
-
-                loadChat(index) {
-                    this.currentChatIndex = index;
-                    this.messages = [...this.chatHistory[index].messages];
-                    if (this.messages.length > 1 && this.messages[1]?.role === 'user') {
-                        this.chatHistory[index].title = this.messages[1].content.substring(0, 35) + (this.messages[1].content.length > 35 ? '...' : '');
-                    }
-                    this.$nextTick(() => {
-                        this.scrollToBottom();
-                        this.highlightCode();
-                    });
-                },
-
-                deleteChat(index) {
-                    if (this.chatHistory.length <= 1) return;
-                    this.chatHistory.splice(index, 1);
-                    if (this.currentChatIndex >= index && this.currentChatIndex > 0) this.currentChatIndex--;
-                    this.loadChat(this.currentChatIndex);
-                    this.saveChats();
-                },
-
-                autoResize() {
-                    const ta = this.$refs.textarea;
-                    ta.style.height = 'auto';
-                    ta.style.height = Math.min(ta.scrollHeight, 128) + 'px';
-                },
-
-                scrollToBottom() {
-                    const container = document.getElementById('messages');
-                    container.scrollTop = container.scrollHeight;
-                },
-
-                highlightCode() {
-                    document.querySelectorAll('pre code').forEach((block) => {
-                        hljs.highlightElement(block);
-                    });
-                },
-
-                renderMarkdown(text) {
-                    return marked.parse(text);
-                },
-
-                async sendMessage() {
-                    if (!this.input.trim() || this.isTyping || !this.groqKey) return;
-
-                    const userMessage = this.input.trim();
-                    this.messages.push({ role: 'user', content: userMessage });
-                    if (this.messages.length === 2) {
-                        this.chatHistory[this.currentChatIndex].title = userMessage.substring(0, 35) + (userMessage.length > 35 ? '...' : '');
-                    }
-
-                    this.input = '';
-                    this.autoResize();
-                    this.isTyping = true;
-                    this.scrollToBottom();
-
-                    const messagesForAPI = [
-                        { role: 'system', content: 'Você é o ORB, um assistente super inteligente com acesso à internet. Se precisar de informações atualizadas, use a ferramenta de busca. Sempre responda de forma clara e útil.' },
-                        ...this.messages.map(m => ({
-                            role: m.role === 'assistant' ? 'assistant' : 'user',
-                            content: m.content
-                        }))
-                    ];
-
-                    const tempIndex = this.messages.length;
-                    this.messages.push({ role: 'assistant', content: '' });
-
-                    let fullReply = "";
-
-                    try {
-                        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${this.groqKey}`,
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                model: "openai/gpt-oss-120b",
-                                messages: messagesForAPI,
-                                max_tokens: 4096,
-                                temperature: 0.7,
-                                reasoning_effort: this.currentMode,
-                                stream: true,
-                                tools: [
-                                    {
-                                        type: "function",
-                                        function: {
-                                            name: "search_web",
-                                            description: "Busca informações atualizadas na internet",
-                                            parameters: {
-                                                type: "object",
-                                                properties: {
-                                                    query: { type: "string", description: "Pergunta ou termo de busca" }
-                                                },
-                                                required: ["query"]
-                                            }
-                                        }
-                                    }
-                                ]
-                            })
-                        });
-
-                        if (!response.ok) {
-                            const err = await response.text();
-                            throw new Error(err || 'Erro na API Groq');
-                        }
-
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder();
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            const chunk = decoder.decode(value);
-                            const lines = chunk.split('\n');
-
-                            for (const line of lines) {
-                                if (line.startsWith('data: ')) {
-                                    const data = line.slice(6);
-                                    if (data === '[DONE]') continue;
-                                    try {
-                                        const parsed = JSON.parse(data);
-                                        const delta = parsed.choices[0]?.delta?.content || '';
-                                        fullReply += delta;
-
-                                        clearTimeout(this.updateTimeout);
-                                        this.updateTimeout = setTimeout(() => {
-                                            this.messages[tempIndex].content = fullReply;
-                                            this.$nextTick(() => {
-                                                this.scrollToBottom();
-                                                this.highlightCode();
-                                            });
-                                        }, 50);
-                                    } catch (e) {}
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        fullReply = `Erro: Não foi possível conectar à Groq. Verifique sua chave.`;
-                    }
-
-                    this.messages[tempIndex].content = fullReply;
-                    this.isTyping = false;
-                    this.chatHistory[this.currentChatIndex].messages = this.messages;
-                    this.saveChats();
-                    this.$nextTick(() => {
-                        this.scrollToBottom();
-                        this.highlightCode();
-                    });
-                }
-            }
-        }
-    </script>
 </body>
-    </html>
+                                                                   </html>
