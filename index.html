@@ -3,59 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Foguete 3D - Three.js</title>
+    <title>Simulador Falcon 9 - Three.js</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #000; }
+        body { margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; background-color: #000; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         
+        /* UI Layers */
         #ui-layer {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #0f0;
-            background: rgba(0, 20, 0, 0.7);
+            top: 20px; left: 20px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.5);
             padding: 15px;
-            border: 1px solid #0f0;
-            border-radius: 5px;
-            pointer-events: none; /* Deixa o mouse passar para o 3D */
+            border-radius: 8px;
+            pointer-events: none;
             user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
+        .stat { font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; width: 200px;}
+        .value { font-weight: bold; color: #4da6ff; }
+        .fuel-label { font-size: 12px; margin-top: 5px; color: #aaa; }
+        .fuel-bar-bg { width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 5px; }
+        .fuel-bar-fill { height: 100%; background: linear-gradient(90deg, #ffdd00, #ff8800); transition: width 0.2s; width: 100%; }
 
-        #ui-layer h1 { margin: 0 0 10px 0; font-size: 18px; text-transform: uppercase; }
-        .stat { font-size: 14px; margin-bottom: 5px; }
-        .value { font-weight: bold; color: #fff; }
+        #top-controls {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            pointer-events: auto;
+        }
+        #btn-separate {
+            background: #d9534f; color: white; border: none; padding: 10px 20px;
+            font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer;
+            box-shadow: 0 4px #c9302c; transition: all 0.1s;
+            display: none; /* Escondido até a altitude certa */
+        }
+        #btn-separate:active { box-shadow: 0 2px #c9302c; transform: translateY(2px); }
+        #btn-separate:disabled { background: #555; box-shadow: none; cursor: not-allowed; opacity: 0.7; }
 
         #controls-hint {
-            position: absolute;
-            bottom: 30px;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            text-shadow: 0 0 10px black;
-            pointer-events: none;
-            animation: pulse 1.5s infinite;
+            position: absolute; bottom: 30px; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.7); font-size: 16px; pointer-events: none;
         }
-
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-
-        #fuel-bar-container {
-            width: 100%;
-            height: 10px;
-            background: #333;
-            margin-top: 5px;
-        }
-        #fuel-bar {
-            width: 100%;
-            height: 100%;
-            background: #0f0;
-            transition: width 0.1s;
-        }
+        strong { color: #fff; }
     </style>
     <script type="importmap">
         {
@@ -69,271 +57,385 @@
 <body>
 
     <div id="ui-layer">
-        <h1>Telemetria</h1>
-        <div class="stat">Altitude: <span id="alt-val" class="value">0</span> m</div>
-        <div class="stat">Velocidade: <span id="vel-val" class="value">0</span> km/h</div>
-        <div class="stat">Atmosfera: <span id="atm-val" class="value">100</span>%</div>
-        <div class="stat">Combustível:</div>
-        <div id="fuel-bar-container"><div id="fuel-bar"></div></div>
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">TELEMETRIA F9</div>
+        <div class="stat">ESTÁGIO ATIVO: <span id="stage-val" class="value">1</span></div>
+        <div class="stat">ALTITUDE: <span id="alt-val" class="value">0 m</span></div>
+        <div class="stat">VELOCIDADE: <span id="vel-val" class="value">0 km/h</span></div>
+        <div class="stat">ATMOSFERA: <span id="atm-val" class="value">100%</span></div>
+        
+        <div class="fuel-label">COMBUSTÍVEL ESTÁGIO 1</div>
+        <div class="fuel-bar-bg"><div id="fuel1-bar" class="fuel-bar-fill"></div></div>
+        <div class="fuel-label">COMBUSTÍVEL ESTÁGIO 2</div>
+        <div class="fuel-bar-bg"><div id="fuel2-bar" class="fuel-bar-fill"></div></div>
     </div>
 
-    <div id="controls-hint">SEGURE [ESPAÇO] PARA LIGAR O MOTOR</div>
+    <div id="top-controls">
+        <button id="btn-separate">SEPARAR ESTÁGIOS</button>
+    </div>
+
+    <div id="controls-hint">Segure <strong>[ESPAÇO]</strong> para acelerar. Pressione <strong>[T]</strong> para travar aceleração. Mouse gira a câmera.</div>
     <div id="canvas-container"></div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- Configuração da Cena ---
+        // --- CONFIGURAÇÃO GERAL ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Começa azul céu
-        scene.fog = new THREE.Fog(0x87CEEB, 20, 500);
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 100, 2000);
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 50000);
-        camera.position.set(0, 10, 40);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 100000);
+        camera.position.set(0, 30, 120);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // --- Luzes ---
-        const ambientLight = new THREE.AmbientLight(0x404040, 1.5); // Luz ambiente suave
+        // --- LUZES ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); 
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 2);
-        sunLight.position.set(100, 500, 100);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+        sunLight.position.set(200, 1000, 300);
         sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.mapSize.width = 4096; // Sombras mais nítidas
+        sunLight.shadow.mapSize.height = 4096;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 5000;
+        sunLight.shadow.camera.left = -200; sunLight.shadow.camera.right = 200;
+        sunLight.shadow.camera.top = 200; sunLight.shadow.camera.bottom = -200;
+        sunLight.shadow.bias = -0.0005;
         scene.add(sunLight);
 
-        // --- Objetos: Terra e Plataforma ---
-        // Usamos uma esfera muito grande para simular a curvatura do planeta
-        const earthRadius = 2000;
-        const earthGeometry = new THREE.SphereGeometry(earthRadius, 128, 128);
-        const earthMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x228B22, 
-            roughness: 0.8,
-            metalness: 0.1
-        });
-        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        // --- AMBIENTE ---
+        // Terra gigante
+        const earthRadius = 8000;
+        const earthMat = new THREE.MeshStandardMaterial({ color: 0x2E8B57, roughness: 0.9, metalness: 0.1 });
+        const earth = new THREE.Mesh(new THREE.SphereGeometry(earthRadius, 64, 64), earthMat);
         earth.rotation.x = -Math.PI / 2;
-        earth.position.y = -earthRadius; // Topo da esfera no y=0
+        earth.position.y = -earthRadius;
         earth.receiveShadow = true;
         scene.add(earth);
 
-        // Grid na base para referência
-        const gridHelper = new THREE.PolarGridHelper(50, 10);
-        gridHelper.position.y = 0.1;
-        scene.add(gridHelper);
+        // Plataforma de lançamento
+        const pad = new THREE.Mesh(new THREE.CylinderGeometry(20, 25, 5, 32), new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.6 }));
+        pad.position.y = 2.5;
+        pad.receiveShadow = true;
+        pad.castShadow = true;
+        scene.add(pad);
 
-        // --- Objetos: Foguete ---
-        const rocketGroup = new THREE.Group();
+        // Estrelas procedural
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = [];
+        for(let i=0; i<10000; i++) {
+            const x = (Math.random() - 0.5) * 10000;
+            const y = (Math.random() - 0.5) * 10000;
+            const z = (Math.random() - 0.5) * 10000;
+            if(x*x+y*y+z*z > 3000*3000) starPos.push(x,y,z); // Longe do centro
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({color: 0xffffff, size: 2, transparent: true, opacity: 0});
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // --- CONSTRUÇÃO DO FOGUETE (Estilo Falcon 9) ---
         
-        // Corpo do foguete
-        const bodyGeo = new THREE.CylinderGeometry(1, 1, 8, 32);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 4;
-        body.castShadow = true;
-        rocketGroup.add(body);
+        // Materiais
+        const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.2 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7, metalness: 0.5 });
+        const gridMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, wireframe: false });
 
-        // Ponta
-        const noseGeo = new THREE.ConeGeometry(1, 3, 32);
-        const noseMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const nose = new THREE.Mesh(noseGeo, noseMat);
-        nose.position.y = 9.5;
-        nose.castShadow = true;
-        rocketGroup.add(nose);
+        // == ESTÁGIO 1 ==
+        const stage1 = new THREE.Group();
+        
+        // Corpo Principal S1 (Cilindro alto)
+        const s1Body = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 40, 32), whiteMat);
+        s1Body.position.y = 20;
+        s1Body.castShadow = true; s1Body.receiveShadow = true;
+        stage1.add(s1Body);
 
-        // Aletas (Fins)
-        const finGeo = new THREE.BoxGeometry(0.2, 2, 1.5);
-        const finMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        for(let i=0; i<4; i++) {
-            const fin = new THREE.Mesh(finGeo, finMat);
-            fin.position.y = 1;
-            fin.rotation.y = (Math.PI / 2) * i;
-            fin.translateZ(1.2);
-            fin.castShadow = true;
-            rocketGroup.add(fin);
+        // Base do motor e pernas de pouso (simplificadas)
+        const s1Base = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.5, 3, 32), darkMat);
+        s1Base.position.y = 1.5;
+        s1Base.castShadow = true;
+        stage1.add(s1Base);
+        
+        for(let i=0; i<4; i++){
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(1, 8, 1.5), whiteMat);
+            leg.position.set(0, 4, 0);
+            leg.rotation.y = (Math.PI/2) * i;
+            leg.translateZ(3.2);
+            leg.rotation.x = -0.1;
+            leg.castShadow = true;
+            stage1.add(leg);
         }
 
-        // Fogo do Motor (Visual)
-        const flameGeo = new THREE.ConeGeometry(0.8, 4, 16);
-        flameGeo.translate(0, -2, 0); // Pivô no topo
-        const flameMat = new THREE.MeshBasicMaterial({ 
-            color: 0xffaa00, 
-            transparent: true, 
-            opacity: 0.8,
-            blending: THREE.AdditiveBlending 
-        });
-        const flame = new THREE.Mesh(flameGeo, flameMat);
-        flame.position.y = 0;
-        flame.visible = false; // Começa desligado
-        rocketGroup.add(flame);
+        // Seção Interestágio (Topo do S1, preto e gradeado)
+        const interstage = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 4, 32), gridMat);
+        interstage.position.y = 42;
+        interstage.castShadow = true;
+        stage1.add(interstage);
 
-        // Luz do motor
-        const engineLight = new THREE.PointLight(0xffaa00, 0, 20);
-        engineLight.position.y = -2;
-        rocketGroup.add(engineLight);
+        // == ESTÁGIO 2 e CARGA ÚTIL ==
+        const stage2 = new THREE.Group();
+        // Posição inicial relativa ao S1 (topo do interestágio)
+        stage2.position.y = 44; 
 
-        scene.add(rocketGroup);
+        // Corpo Principal S2
+        const s2Body = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 12, 32), whiteMat);
+        s2Body.position.y = 6; // Metade da altura
+        s2Body.castShadow = true; s2Body.receiveShadow = true;
+        stage2.add(s2Body);
 
-        // --- Objetos: Estrelas (Espaço) ---
-        const starsGeometry = new THREE.BufferGeometry();
-        const starsCount = 5000;
-        const posArray = new Float32Array(starsCount * 3);
-        
-        for(let i = 0; i < starsCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 4000; // Espalhadas longe
+        // Motor S2 (Vácuo - bocal grande)
+        const s2Engine = new THREE.Mesh(new THREE.ConeGeometry(2.5, 3, 32, 1, true), darkMat);
+        s2Engine.rotation.x = Math.PI;
+        s2Engine.position.y = -1.5;
+        s2Engine.castShadow = true;
+        stage2.add(s2Engine);
+
+        // Coifa de Carga Útil (Nose Cone)
+        const fairingGeo = new THREE.CylinderGeometry(0, 3, 8, 32);
+        const fairing = new THREE.Mesh(fairingGeo, whiteMat);
+        fairing.position.y = 16;
+        fairing.castShadow = true;
+        stage2.add(fairing);
+
+        // MONTAGEM INICIAL: Estágio 2 é filho do Estágio 1
+        stage1.add(stage2);
+        // Posição inicial do foguete inteiro na plataforma
+        stage1.position.y = 5; 
+        scene.add(stage1);
+
+
+        // --- SISTEMA DE EFEITO DE MOTOR (Fogo Realista) ---
+        function createEnginePlume() {
+            const plumeGroup = new THREE.Group();
+            // Usamos vários cones empilhados com materiais aditivos para um brilho intenso
+            const plumeMatCore = new THREE.MeshBasicMaterial({ 
+                color: 0xffddaa, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false 
+            });
+            const plumeMatOuter = new THREE.MeshBasicMaterial({ 
+                color: 0xff6600, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false 
+            });
+
+            const core = new THREE.Mesh(new THREE.ConeGeometry(1.5, 10, 16, 1, true), plumeMatCore);
+            core.geometry.translate(0, -5, 0); // Pivô no topo
+            core.rotation.x = Math.PI; // Aponta para baixo
+
+            const outer = new THREE.Mesh(new THREE.ConeGeometry(2.5, 14, 16, 1, true), plumeMatOuter);
+            outer.geometry.translate(0, -7, 0);
+            outer.rotation.x = Math.PI;
+
+            plumeGroup.add(core);
+            plumeGroup.add(outer);
+            
+            // Luz dinâmica do motor
+            const engineLight = new THREE.PointLight(0xffaa00, 0, 100, 2);
+            engineLight.position.y = -2;
+            plumeGroup.add(engineLight);
+            
+            plumeGroup.visible = false;
+            return { group: plumeGroup, light: engineLight, core: core, outer: outer };
         }
-        
-        starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const starsMaterial = new THREE.PointsMaterial({ size: 1.5, color: 0xffffff, transparent: true, opacity: 0 });
-        const starField = new THREE.Points(starsGeometry, starsMaterial);
-        scene.add(starField);
 
-        // --- Controles de Câmera ---
+        const plumeS1 = createEnginePlume();
+        stage1.add(plumeS1.group); // Adiciona na base do S1
+
+        const plumeS2 = createEnginePlume();
+        plumeS2.group.position.y = -3; // Ajusta posição pro motor do S2
+        stage2.add(plumeS2.group); // Adiciona na base do S2
+
+        // --- CONTROLES E ESTADO DO JOGO ---
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enablePan = false;
-        controls.minDistance = 10;
-        controls.maxDistance = 100;
-        controls.target.set(0, 5, 0);
+        controls.minDistance = 30;
+        controls.maxDistance = 500;
+        // Foca inicialmente no meio do foguete
+        controls.target.set(0, 30, 0);
+        controls.update();
 
-        // --- Física e Estado do Jogo ---
-        const physics = {
-            velocity: 0,
-            altitude: 0,
-            acceleration: 0,
-            fuel: 100,
-            isEngineOn: false,
-            gravity: 9.81,
-            thrustPower: 25, // Força do motor
-            dragCoeff: 0.05 // Resistência do ar
+        const gameState = {
+            throttleOn: false,
+            throttleLocked: false,
+            currentStage: 1, // 1: Conjunto completo, 2: Apenas S2 voando
+            stageSeparated: false,
+            s1: {
+                velocity: 0, alt: 0, fuel: 300, // 300 segundos de combustível (~5 min)
+                thrust: 45, dragCoeff: 0.04, mass: 100
+            },
+            s2: {
+                velocity: 0, alt: 0, fuel: 150, // Menos combustível pro S2
+                thrust: 25, dragCoeff: 0.02, mass: 30
+            },
+            gravityBase: 9.81
         };
 
         // Inputs
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') physics.isEngineOn = true;
+        const handleKey = (e, isDown) => {
+            if (e.code === 'Space' && !gameState.throttleLocked) gameState.throttleOn = isDown;
+            if (e.code === 'KeyT' && isDown) {
+                gameState.throttleLocked = !gameState.throttleLocked;
+                gameState.throttleOn = gameState.throttleLocked; // Se travou, liga. Se destravou, desliga (a menos que segure espaço)
+            }
+        };
+        window.addEventListener('keydown', (e) => handleKey(e, true));
+        window.addEventListener('keyup', (e) => handleKey(e, false));
+        // Botão de Separação
+        const btnSeparate = document.getElementById('btn-separate');
+        btnSeparate.addEventListener('click', () => {
+            if(gameState.currentStage === 1 && gameState.s1.alt > 500) {
+                separateStages();
+            }
         });
-        window.addEventListener('keyup', (e) => {
-            if (e.code === 'Space') physics.isEngineOn = false;
-        });
-        window.addEventListener('mousedown', () => physics.isEngineOn = true);
-        window.addEventListener('mouseup', () => physics.isEngineOn = false);
-        window.addEventListener('touchstart', (e) => { e.preventDefault(); physics.isEngineOn = true; }, {passive: false});
-        window.addEventListener('touchend', () => physics.isEngineOn = false);
+
+        function separateStages() {
+            if(gameState.stageSeparated) return;
+            gameState.stageSeparated = true;
+            gameState.currentStage = 2;
+            gameState.throttleLocked = false; // Reseta trava na separação
+            gameState.throttleOn = false;
+
+            // Tática crucial do Three.js: Anexar o objeto à cena para ele se tornar independente
+            // O Scene.attach mantém a posição/rotação global do objeto.
+            scene.attach(stage2);
+
+            // Transfere a velocidade atual para o S2 e dá um pequeno empurrão
+            gameState.s2.velocity = gameState.s1.velocity + 2; 
+            gameState.s2.alt = stage2.position.y;
+            
+            // Desliga motor do S1 visualmente e na física
+            plumeS1.group.visible = false;
+            plumeS1.light.intensity = 0;
+
+            // UI
+            btnSeparate.disabled = true;
+            btnSeparate.innerText = "ESTÁGIOS SEPARADOS";
+            document.getElementById('stage-val').innerText = "2 (Órbita)";
+        }
 
 
-        // --- Loop de Animação ---
+        // --- LOOP PRINCIPAL ---
         const clock = new THREE.Clock();
+        
+        // Referências de UI
         const uiAlt = document.getElementById('alt-val');
         const uiVel = document.getElementById('vel-val');
         const uiAtm = document.getElementById('atm-val');
-        const uiFuel = document.getElementById('fuel-bar');
+        const uiFuel1 = document.getElementById('fuel1-bar');
+        const uiFuel2 = document.getElementById('fuel2-bar');
+        const maxFuelS1 = gameState.s1.fuel;
+        const maxFuelS2 = gameState.s2.fuel;
 
         function animate() {
             requestAnimationFrame(animate);
-            
-            const dt = Math.min(clock.getDelta(), 0.1); // Delta time (max 0.1s para evitar bugs de física se travar)
+            let dt = Math.min(clock.getDelta(), 0.05);
 
-            // 1. Atualizar Estado do Motor
-            if (physics.isEngineOn && physics.fuel > 0) {
-                physics.fuel -= 10 * dt; // Consumo de combustível
-                flame.visible = true;
+            // --- FÍSICA E LÓGICA ---
+            
+            let activeStageObj = gameState.currentStage === 1 ? stage1 : stage2;
+            let activePhysics = gameState.currentStage === 1 ? gameState.s1 : gameState.s2;
+            let activePlume = gameState.currentStage === 1 ? plumeS1 : plumeS2;
+            
+            // Altura atual do estágio ativo
+            const currentAlt = activeStageObj.position.y - 5; // -5 para compensar a base
+            activePhysics.alt = currentAlt;
+            
+            // Ambiente
+            // Atmosfera diminui exponencialmente (referência visual ~3000m)
+            const atmDensity = Math.exp(-currentAlt / 2000); 
+            // Gravidade diminui ligeiramente com a altura
+            const gravity = gameState.gravityBase * Math.pow(earthRadius / (earthRadius + currentAlt), 2);
+
+            // Lógica do Motor
+            let thrustForce = 0;
+            const canThrust = gameState.throttleOn && activePhysics.fuel > 0;
+            
+            if (canThrust) {
+                activePhysics.fuel -= dt; // Consome 1 unidade por segundo
+                thrustForce = activePhysics.thrust;
                 
-                // Efeito de flicker no fogo
-                flame.scale.set(1, 1 + Math.random() * 0.5, 1);
-                engineLight.intensity = 2;
+                // Efeitos Visuais do Motor (Ativo)
+                activePlume.group.visible = true;
+                // Tremulação aleatória para realismo
+                const flicker = 0.8 + Math.random() * 0.4;
+                // O fogo expande no vácuo (menos atmosfera)
+                const vacuumExpansion = 1 + (1 - atmDensity) * 1.5; 
+                activePlume.core.scale.set(vacuumExpansion, flicker, vacuumExpansion);
+                activePlume.outer.scale.set(vacuumExpansion*1.2, flicker*1.1, vacuumExpansion*1.2);
+                // Intensidade da luz baseada na altitude (mais escuro o céu, mais brilha)
+                activePlume.light.intensity = 5 * flicker * (1.5 - atmDensity);
             } else {
-                flame.visible = false;
-                engineLight.intensity = 0;
+                activePlume.group.visible = false;
+                activePlume.light.intensity = 0;
             }
 
-            // 2. Calcular Física
-            // Densidade do ar diminui com a altura (simulação exponencial simples)
-            // Altura de referência da atmosfera visual ~ 1000 unidades
-            const airDensity = Math.exp(-rocketGroup.position.y / 600); 
-            
-            let thrust = (physics.isEngineOn && physics.fuel > 0) ? physics.thrustPower : 0;
-            
-            // Força de arrasto: Fd = 0.5 * density * v^2 * Cd (simplificado)
-            const dragDirection = physics.velocity > 0 ? -1 : 1;
-            const drag = 0.5 * airDensity * (physics.velocity * physics.velocity) * physics.dragCoeff * dragDirection;
+            // Cálculo de Forças
+            const dragDir = activePhysics.velocity > 0 ? -1 : 1;
+            // Arrasto simplificado: 0.5 * densidade * v^2 * Cd
+            const dragForce = 0.5 * atmDensity * (activePhysics.velocity * activePhysics.velocity) * activePhysics.dragCoeff * dragDir;
 
-            // Gravidade diminui levemente com a altura (muito sutil nessa escala)
-            const gravity = physics.gravity;
+            // Aceleração = F_total / massa
+            const accel = (thrustForce + dragForce) / (activePhysics.mass / 10) - gravity;
 
-            // Aceleração Resultante
-            physics.acceleration = thrust + drag - gravity;
-
-            // Integrar Velocidade e Posição
-            // Se estiver no chão (y=0) e aceleração for negativa, não move
-            if (rocketGroup.position.y <= 0 && physics.acceleration < 0 && physics.velocity <= 0) {
-                physics.velocity = 0;
-                physics.acceleration = 0;
-                rocketGroup.position.y = 0;
+            // Integração de Euler
+            // Se estiver no chão e não tiver empuxo suficiente para vencer a gravidade, não se move para baixo
+            if (activeStageObj.position.y <= 5 && activePhysics.velocity <= 0 && accel < 0) {
+                activePhysics.velocity = 0;
+                activeStageObj.position.y = 5;
             } else {
-                physics.velocity += physics.acceleration * dt;
-                rocketGroup.position.y += physics.velocity * dt;
+                activePhysics.velocity += accel * dt;
+                activeStageObj.position.y += activePhysics.velocity * dt;
             }
 
             // Colisão com o chão
-            if (rocketGroup.position.y < 0) {
-                rocketGroup.position.y = 0;
-                physics.velocity = 0;
+            if (activeStageObj.position.y < 5) {
+                activeStageObj.position.y = 5;
+                activePhysics.velocity = 0;
             }
 
-            // 3. Efeitos Visuais de Ambiente (Atmosfera vs Espaço)
-            // Interpolação de cor do céu
-            const spaceHeight = 1500;
-            const progress = Math.min(Math.max(rocketGroup.position.y / spaceHeight, 0), 1);
-            
-            const skyBlue = new THREE.Color(0x87CEEB);
-            const spaceBlack = new THREE.Color(0x000000);
-            const currentSkyColor = skyBlue.clone().lerp(spaceBlack, progress);
-            
-            scene.background = currentSkyColor;
-            scene.fog.color = currentSkyColor;
-            
-            // Densidade do fog diminui no espaço
-            scene.fog.near = 20 + (progress * 1000);
-            scene.fog.far = 500 + (progress * 10000);
+            // --- FÍSICA DO ESTÁGIO 1 ABANDONADO (Se houver) ---
+            if (gameState.stageSeparated) {
+                // S1 cai como uma pedra (sem controle neste simulador simples)
+                const s1Atm = Math.exp(-(stage1.position.y-5) / 2000);
+                const s1Drag = 0.5 * s1Atm * (gameState.s1.velocity**2) * gameState.s1.dragCoeff * (gameState.s1.velocity>0?-1:1);
+                // Sem empuxo
+                gameState.s1.velocity += ((s1Drag / (gameState.s1.mass/10)) - gravity) * dt;
+                stage1.position.y += gameState.s1.velocity * dt;
+                 // Chão
+                 if (stage1.position.y < 5) { stage1.position.y = 5; gameState.s1.velocity = 0; }
+                 // Gira um pouco enquanto cai
+                 stage1.rotation.x += 0.1 * dt; 
+                 stage1.rotation.z += 0.05 * dt;
+            }
 
-            // Estrelas aparecem quando escurece
-            starsMaterial.opacity = Math.max(0, (progress - 0.3) * 1.5);
+            // --- EFEITOS VISUAIS GERAIS ---
+            // Cor do céu e neblina interpolam do azul para o preto
+            const spaceHeight = 4000;
+            const skyProgress = Math.min(Math.max(currentAlt / spaceHeight, 0), 1);
+            const skyColor = new THREE.Color(0x87CEEB).lerp(new THREE.Color(0x000000), skyProgress);
+            scene.background = skyColor;
+            scene.fog.color = skyColor;
+            scene.fog.near = 100 + skyProgress * 2000;
+            scene.fog.far = 2000 + skyProgress * 20000;
+            // Estrelas aparecem
+            starMat.opacity = Math.max(0, (skyProgress - 0.2) * 1.5);
 
-            // 4. Atualizar Câmera e Controles
-            // A câmera segue o foguete, mas mantém a rotação definida pelo usuário
-            controls.target.copy(rocketGroup.position);
-            // Eleva um pouco o target para ver mais o topo
-            controls.target.y += 5;
+            // --- CÂMERA E UI ---
+            // A câmera segue o objeto ativo
+            const targetPos = activeStageObj.position.clone();
+            // Ajusta o ponto focal dependendo do estágio (S1 é muito alto, S2 é menor)
+            targetPos.y += (gameState.currentStage === 1 ? 25 : 8);
+            controls.target.lerp(targetPos, 0.1); // Suavização
             controls.update();
 
-            // Sincronizar posição da câmera relativa ao foguete para dar sensação de acompanhamento suave
-            // (O OrbitControls cuida da maior parte, aqui apenas garantimos que a base segue)
-            
-            // 5. Atualizar UI
-            uiAlt.innerText = rocketGroup.position.y.toFixed(0);
-            uiVel.innerText = (physics.velocity * 3.6).toFixed(0); // m/s para km/h
-            uiAtm.innerText = (airDensity * 100).toFixed(0);
-            uiFuel.style.width = physics.fuel + '%';
-            
-            if (physics.fuel <= 0) uiFuel.style.background = '#f00';
-
-            renderer.render(scene, camera);
-        }
-
-        // Handle Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Iniciar
-        animate();
-    </script>
-</body>
-    </html>
+            // Atualiza HUD
+            uiAlt.innerText = currentAlt.toFixed(0) + " m";
+            uiVel.innerText = (activePhysics.velocity * 3.6).toFixed(0) + " km/h";
+            uiAtm.innerText = (atmDensity * 100).toFixed(1) + "%";
+            uiFuel1.style.width = (gameState.s1.fuel
