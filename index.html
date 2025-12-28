@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Flight Simulator - 1.glb</title>
+    <title>Flight Simulator - 1.glb Fixed</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: #FFF; pointer-events: none; text-shadow: 2px 2px 4px #000; }
@@ -85,9 +85,10 @@
         runway.receiveShadow = true;
         scene.add(runway);
 
-        // CARREGAR 1.GLB
+        // CARREGAR 1.GLB COM ROTAÇÃO DE 45 GRAUS PARA ESQUERDA
         new GLTFLoader().load('1.glb', (gltf) => {
-            gltf.scene.rotation.y = Math.PI;
+            // 180 graus (frente) + 45 graus (esquerda)
+            gltf.scene.rotation.y = Math.PI + (Math.PI / 4); 
             gltf.scene.position.y = -0.55; 
             gltf.scene.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; }});
             modelInner.add(gltf.scene);
@@ -121,16 +122,13 @@
             if (isGrounded) {
                 planeGroup.position.y = 0.55;
                 planeGroup.rotation.y -= joy.x * dt * 0.6;
-                // Nariz levanta primeiro
                 if (speed > 100) {
                     planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, joy.y * 0.18, dt * 1.5);
                 }
-                // Decolagem gradual
                 if (speed > 145 && planeGroup.rotation.x > 0.02) {
                     planeGroup.position.y += speed * planeGroup.rotation.x * dt * 0.4;
                 }
             } else {
-                // VOO ESTÁVEL
                 planeGroup.rotation.x = THREE.MathUtils.lerp(planeGroup.rotation.x, joy.y * 0.7, dt * 1.2);
                 planeGroup.rotation.z = THREE.MathUtils.lerp(planeGroup.rotation.z, -joy.x * 0.6, dt * 1.2);
                 planeGroup.rotation.y -= planeGroup.rotation.z * dt * 0.4;
@@ -142,17 +140,12 @@
 
             planeGroup.translateZ(speed * dt * 0.85);
 
-            // CÂMERA FIXA SEM TREMOR
             const camTarget = new THREE.Vector3(0, 10, -35).applyMatrix4(planeGroup.matrixWorld);
             camera.position.copy(camTarget);
             camera.lookAt(planeGroup.position);
 
-            // SOMBRA PERSEGUE O AVIÃO
             sun.position.set(planeGroup.position.x + 50, planeGroup.position.y + 200, planeGroup.position.z + 50);
             sun.target = planeGroup;
-
-            document.getElementById('ui-spd').innerText = `SPEED: ${Math.round(speed)} kts`;
-            document.getElementById('ui-alt').innerText = `ALTITUDE: ${Math.round(alt)} m`;
 
             renderer.render(scene, camera);
             requestAnimationFrame(loop);
@@ -160,4 +153,4 @@
         loop();
     </script>
 </body>
-</html>
+    </html>
