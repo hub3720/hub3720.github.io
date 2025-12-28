@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Falcon 9 & Earth 3D</title>
+    <title>Falcon 9 - Estável</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #0f0; pointer-events: none; font-size: 16px; z-index: 10; }
@@ -44,99 +44,104 @@
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
     const T = THREE;
-    const RAIO_TERRA = 637100; // 637.1km na escala do simulador
+    const RAIO_TERRA = 637100; 
     
     const scene = new T.Scene();
-    const camera = new T.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000000);
-    camera.position.set(0, RAIO_TERRA + 150, 300);
-
-    const renderer = new T.WebGLRenderer({ antialias: true });
+    // Aumento do Near Plane (10) para evitar o glitch visual (Z-fighting)
+    const camera = new T.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 10, 10000000);
+    
+    const renderer = new T.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true }); // Buffer logarítmico ajuda com escalas grandes
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Efeito de brilho (Bloom) para destacar o fogo azul e a atmosfera
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new T.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+    const bloom = new UnrealBloomPass(new T.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
     composer.addPass(bloom);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // Luzes
-    scene.add(new T.AmbientLight(0xffffff, 0.8));
-    const sun = new T.DirectionalLight(0xffffff, 2.5);
+    scene.add(new T.AmbientLight(0xffffff, 0.7));
+    const sun = new T.DirectionalLight(0xffffff, 2.0);
     sun.castShadow = true;
     scene.add(sun);
 
     const loader = new GLTFLoader();
 
-    // --- CARREGAR TERRA 3D ---
+    // --- TERRA E ATMOSFERA (Agrupados para não deslocar) ---
+    const worldGroup = new T.Group();
+    scene.add(worldGroup);
+
     loader.load('earth.gltf', (gltf) => {
         const earthModel = gltf.scene;
-        // Ajustamos para o tamanho real solicitado
+        // Se o modelo 3D sumir, tente scale(1,1,1)
         earthModel.scale.set(RAIO_TERRA, RAIO_TERRA, RAIO_TERRA); 
-        earthModel.receiveShadow = true;
-        scene.add(earthModel);
+        earthModel.traverse(n => { if(n.isMesh) n.receiveShadow = true; });
+        worldGroup.add(earthModel);
     });
 
-    // --- ATMOSFERA VISUAL (Glow) ---
-    const atmoGeom = new T.SphereGeometry(RAIO_TERRA + 15000, 64, 64);
+    // Atmosfera 0.3x maior (total 1.3x)
+    const atmoGeom = new T.SphereGeometry(RAIO_TERRA * 1.3, 64, 64);
     const atmoMat = new T.MeshPhongMaterial({
         color: 0x4488ff,
         transparent: true,
-        opacity: 0.2,
-        side: T.BackSide
+        opacity: 0.15,
+        side: T.BackSide,
+        depthWrite: false // Evita conflito visual com o planeta
     });
     const atmosphere = new T.Mesh(atmoGeom, atmoMat);
-    scene.add(atmosphere);
+    worldGroup.add(atmosphere);
 
-    // --- CARREGA FALCON 9 ---
+    // --- FOGUETE ---
     const rocket = new T.Group();
+    rocket.position.y = RAIO_TERRA; // Spawna no topo do planeta
     scene.add(rocket);
 
     loader.load('f9.gltf', (gltf) => {
         const f9 = gltf.scene;
-        f9.scale.set(8, 8, 8); // Ajuste conforme necessário
-        f9.traverse(n => { if(n.isMesh) n.castShadow = n.receiveShadow = true; });
+        f9.scale.set(8, 8, 8); 
+        f9.traverse(n => { if(n.isMesh) n.castShadow = true; });
         rocket.add(f9);
     });
 
-    // --- FOGO AZUL / VIOLETA ---
+    // --- FOGO AZUL GIGANTE (3.5x maior) ---
     const fireTex = new T.CanvasTexture((() => {
         const c = document.createElement('canvas'); c.width = 64; c.height = 64;
         const ctx = c.getContext('2d');
         const g = ctx.createRadialGradient(32,32,0,32,32,32);
-        g.addColorStop(0, '#ffffff');    // Centro branco
-        g.addColorStop(0.3, '#8a2be2');  // Violeta
-        g.addColorStop(0.7, '#0000ff');  // Azul profundo
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(0.2, '#a020f0'); 
+        g.addColorStop(0.6, '#0000ff');
         g.addColorStop(1, 'transparent');
         ctx.fillStyle = g; ctx.fillRect(0,0,64,64); return c;
     })());
 
     const firePs = [];
-    for(let i=0; i<25; i++) {
+    for(let i=0; i<30; i++) {
         const s = new T.Sprite(new T.SpriteMaterial({map:fireTex, blending: T.AdditiveBlending, transparent:true}));
         s.visible=false; rocket.add(s); firePs.push(s);
     }
 
-    // Variáveis de voo
     let alt = 0, vel = 0, engine = false;
     const btn = document.getElementById('motor-btn');
     btn.onmousedown = btn.ontouchstart = (e) => { e.preventDefault(); engine = true; };
     btn.onmouseup = btn.ontouchend = () => engine = false;
 
+    // Ajuste inicial da câmera para ver o foguete no topo
+    camera.position.set(0, RAIO_TERRA + 200, 500);
+
     function animate() {
         requestAnimationFrame(animate);
         
         if(engine) {
-            vel += 4.5;
+            vel += 5.0;
             firePs.forEach(p => {
                 p.visible = true;
-                p.position.set((Math.random()-0.5)*3, -Math.random()*35 - 5, (Math.random()-0.5)*3);
-                p.scale.set(10, 30, 1);
+                p.position.set((Math.random()-0.5)*5, -Math.random()*100 - 10, (Math.random()-0.5)*5);
+                p.scale.set(35, 105, 1); // 3.5x maior que o anterior
             });
         } else {
             if (alt > 0) vel -= 1.62;
@@ -149,15 +154,13 @@
         const curY = RAIO_TERRA + alt;
         rocket.position.y = curY;
 
-        // Luz e Camera seguem o foguete
-        sun.position.set(200, curY + 500, 200);
+        sun.position.set(500, curY + 1000, 500);
         sun.target.position.set(0, curY, 0);
         controls.target.set(0, curY + 20, 0);
 
-        // Cor do céu muda com a altitude
-        const atmoLimit = 100000;
-        const factor = Math.min(1, alt / atmoLimit);
-        scene.background = new T.Color(0x0a0a2a).lerp(new T.Color(0x000000), factor);
+        // Skybox dinâmica
+        const factor = Math.min(1, alt / 150000);
+        scene.background = new T.Color(0x050515).lerp(new T.Color(0x000000), factor);
 
         controls.update();
         composer.render();
