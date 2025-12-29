@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Flight Simulator - Floresta Densa</title>
+    <title>Flight Simulator - Céu e Sombras Ajustados</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; left: 20px; color: #FFF; pointer-events: none; text-shadow: 2px 2px 4px #000; z-index: 10; }
@@ -39,31 +39,37 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
+        // --- CENA E RENDER ---
         const scene = new THREE.Scene();
+        // Neblina para misturar o horizonte
         scene.fog = new THREE.Fog(0xd1f3ff, 100, 50000); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombras mais suaves
         document.body.appendChild(renderer.domElement);
 
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 5000000);
         
+        // --- LUZES ---
         const sun = new THREE.DirectionalLight(0xffffff, 1.5);
         sun.position.set(100, 500, 100);
         sun.castShadow = true;
-        sun.shadow.camera.left = -150;
-        sun.shadow.camera.right = 150;
-        sun.shadow.camera.top = 150;
-        sun.shadow.camera.bottom = -150;
+        // Ajuste do frustum da sombra para o avião
+        sun.shadow.camera.left = -50;
+        sun.shadow.camera.right = 50;
+        sun.shadow.camera.top = 50;
+        sun.shadow.camera.bottom = -50;
+        sun.shadow.camera.near = 1;
+        sun.shadow.camera.far = 2000;
         sun.shadow.mapSize.set(2048, 2048);
         scene.add(sun);
 
         const ambient = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambient);
 
-        // --- CÉU ---
+        // --- CÉU GRADIENTE REALISTA ---
         const vertexShader = `
             varying vec3 vWorldPosition;
             void main() {
@@ -87,8 +93,8 @@
         const skyMat = new THREE.ShaderMaterial({
             vertexShader, fragmentShader,
             uniforms: {
-                topColor: { value: new THREE.Color(0x00d4ff) },    
-                bottomColor: { value: new THREE.Color(0xffffff) }, 
+                topColor: { value: new THREE.Color(0x00d4ff) },    // Ciano vibrante
+                bottomColor: { value: new THREE.Color(0xffffff) }, // Branco
                 offset: { value: 0.05 },
                 exponent: { value: 0.6 }
             },
@@ -99,89 +105,13 @@
 
         // --- PLANETA ---
         const planetRadius = 637000;
-        const planetGeo = new THREE.SphereGeometry(planetRadius, 128, 128);
-        const planetMat = new THREE.MeshStandardMaterial({ color: 0x337a33 });
-        const planet = new THREE.Mesh(planetGeo, planetMat);
+        const planet = new THREE.Mesh(
+            new THREE.SphereGeometry(planetRadius, 128, 128), 
+            new THREE.MeshStandardMaterial({ color: 0x337a33 })
+        );
         planet.position.y = -planetRadius; 
         planet.receiveShadow = true;
         scene.add(planet);
-
-        // --- SISTEMA DE CHUNKS E ARVORES ---
-        const loader = new GLTFLoader();
-        const treeModels = [];
-        const chunks = new Map();
-        const chunkSize = 300; 
-        const renderDistance = 3; 
-
-        const loadTree = (url) => {
-            return new Promise((resolve) => {
-                loader.load(url, (gltf) => {
-                    gltf.scene.traverse(n => { 
-                        if(n.isMesh) { 
-                            n.castShadow = true; 
-                            n.receiveShadow = true; 
-                        } 
-                    });
-                    resolve(gltf.scene);
-                });
-            });
-        };
-
-        Promise.all([loadTree('t1.glb'), loadTree('t2.glb')]).then(models => {
-            treeModels.push(...models);
-        });
-
-        function updateChunks() {
-            const px = Math.floor(planeGroup.position.x / chunkSize);
-            const pz = Math.floor(planeGroup.position.z / chunkSize);
-
-            for (let x = px - renderDistance; x <= px + renderDistance; x++) {
-                for (let z = pz - renderDistance; z <= pz + renderDistance; z++) {
-                    const key = `${x},${z}`;
-                    if (!chunks.has(key)) {
-                        createChunk(x, z, key);
-                    }
-                }
-            }
-            
-            for (const [key, chunk] of chunks) {
-                const [cx, cz] = key.split(',').map(Number);
-                if (Math.abs(cx - px) > renderDistance || Math.abs(cz - pz) > renderDistance) {
-                    scene.remove(chunk);
-                    chunks.delete(key);
-                }
-            }
-        }
-
-        function createChunk(cx, cz, key) {
-            const group = new THREE.Group();
-            const x0 = cx * chunkSize;
-            const z0 = cz * chunkSize;
-
-            // Pista 1000x100
-            const isRunway = (x0 > -500 && x0 < 500 && z0 > -50 && z0 < 50);
-
-            if (!isRunway && treeModels.length > 0) {
-                const treeCount = 60; // DENSIDADE AUMENTADA
-                for (let i = 0; i < treeCount; i++) {
-                    const model = treeModels[Math.floor(Math.random() * treeModels.length)].clone();
-                    const tx = x0 + Math.random() * chunkSize;
-                    const tz = z0 + Math.random() * chunkSize;
-                    
-                    // Coloca no chão considerando o offset do planeta
-                    model.position.set(tx, 0.5, tz); 
-                    model.rotation.y = Math.random() * Math.PI * 2;
-                    
-                    // Escala 1.1x do modelo original
-                    const s = 1.1; 
-                    model.scale.set(s, s, s);
-                    
-                    group.add(model);
-                }
-            }
-            chunks.set(key, group);
-            scene.add(group);
-        }
 
         // --- AVIÃO ---
         const planeGroup = new THREE.Group();
@@ -194,7 +124,7 @@
 
         let speed = 0, engine = false, thr = 0, joy = { x: 0, y: 0 };
 
-        loader.load('1.glb', (gltf) => {
+        new GLTFLoader().load('1.glb', (gltf) => {
             gltf.scene.rotation.y = Math.PI;
             gltf.scene.position.y = -0.55; 
             gltf.scene.traverse(n => { 
@@ -209,6 +139,7 @@
         scene.add(planeGroup);
         planeGroup.position.set(0, 5, 0);
 
+        // --- CONTROLES ---
         const stick = document.getElementById('joy-stick'), wrap = document.getElementById('joy-wrapper');
         wrap.onpointermove = (e) => {
             if (e.buttons === 1) {
@@ -259,16 +190,17 @@
 
             planeGroup.translateZ(speed * dt * 0.85);
 
-            updateChunks();
-
             // CÂMERA
             cameraAnchor.getWorldPosition(tempVec);
-            camera.position.lerp(tempVec, 0.1); 
+            camera.position.lerp(tempVec, 0.1); // Suaviza a câmera
             camera.lookAt(planeGroup.position);
 
-            // SOL E CÉU
+            // SOL E SOMBRA SEGUE O AVIÃO
+            // A luz fica no alto mas "anda" com o avião para projetar sombra sempre abaixo dele
             sun.position.set(planeGroup.position.x + 50, planeGroup.position.y + 200, planeGroup.position.z + 50);
             sun.target = planeGroup;
+
+            // O CÉU SEGUE A POSIÇÃO DO AVIÃO
             sky.position.copy(planeGroup.position);
 
             // UI
@@ -287,4 +219,4 @@
         });
     </script>
 </body>
-</html>
+    </html>
