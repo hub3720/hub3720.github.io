@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>💗</title>
+<style>
+:root{
+  --rosa-fundo:#f7dce3;
+  --rosa-maca:#f2a7b8;
+}
+
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  background:var(--rosa-fundo);
+  overflow:hidden;
+  font-family:"Segoe UI",sans-serif;
+}
+
+/* Container */
+#container{position:relative;width:100%;height:100%;}
+
+/* Corações flutuantes */
+.heart{
+  position:absolute;
+  width:32px;
+  height:32px;
+  background:var(--rosa-maca);
+  transform:rotate(45deg);
+  animation:float 10s linear forwards;
+  opacity:.8;
+  pointer-events:none;
+}
+.heart:before,.heart:after{
+  content:"";
+  position:absolute;
+  width:32px;
+  height:32px;
+  background:var(--rosa-maca);
+  border-radius:50%;
+}
+.heart:before{top:-16px;left:0}
+.heart:after{left:-16px;top:0}
+
+@keyframes float{to{transform:translateY(-120vh) rotate(45deg);opacity:0}}
+
+/* Watch */
+#watch{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:260px;height:320px;
+  background:var(--rosa-fundo);
+  border-radius:48px;
+  transform:translate(-50%,-50%);
+  box-shadow:0 20px 60px rgba(0,0,0,.15), inset 0 0 0 6px rgba(242,167,184,.5);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.8s ease;
+  z-index:5;
+}
+#botao{
+  background:var(--rosa-maca);
+  color:white;
+  padding:18px 36px;
+  border-radius:14px;
+  font-size:1.4em;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(242,167,184,.6);
+}
+
+/* Coração gigante (1x maior que antes, estilo dos pequenos) */
+#bigHeart{
+  position:absolute;
+  top:40%;
+  left:50%;
+  width:800px;   /* 400px anterior * 2 */
+  height:800px;  /* 400px anterior * 2 */
+  background:var(--rosa-maca);
+  transform:rotate(45deg) translate(-50%,-50%);
+  display:none;
+  z-index:2;
+}
+#bigHeart:before,#bigHeart:after{
+  content:"";
+  position:absolute;
+  width:800px;
+  height:800px;
+  background:var(--rosa-maca);
+  border-radius:50%;
+}
+#bigHeart:before{top:-400px;left:0}
+#bigHeart:after{left:-400px;top:0}
+
+/* Texto dentro do coração */
+#mensagem{
+  position:absolute;
+  width:260px;
+  color:white;
+  text-align:center;
+  font-size:16px;
+  line-height:1.5;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%) rotate(-45deg);
+  z-index:3;
+}
+
+/* ECG */
+#ecg{
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+  height:150px;
+}
+svg{width:100%;height:100%;}
+polyline{
+  fill:none;
+  stroke:var(--rosa-maca);
+  stroke-width:3;
+  stroke-linejoin:round;
+}
+</style>
+</head>
+
+<body>
+<div id="container">
+
+<div id="watch"><div id="botao">Clique Aqui</div></div>
+
+<div id="bigHeart">
+  <div id="mensagem">
+    Minha princesa,<br><br>
+    tudo em você me encanta.<br>
+    O jeito que você me olha,<br>
+    o jeito que você me trata…<br><br>
+    Nosso namoro é único.<br>
+    Doce e intenso, como a gente.<br><br>
+    Mesmo quando a vida bagunça tudo,<br>
+    meu coração ainda escolhe o seu.<br><br>
+    <b>Eu te amo.</b>
+  </div>
+</div>
+
+<div id="ecg" style="display:none;">
+<svg viewBox="0 0 600 150">
+  <polyline id="line" points="0,75"/>
+</svg>
+</div>
+
+</div>
+
+<script>
+const container=document.getElementById("container");
+const botao=document.getElementById("botao");
+const watch=document.getElementById("watch");
+const bigHeart=document.getElementById("bigHeart");
+const line=document.getElementById("line");
+
+// Criar corações flutuantes
+function criarCoracao(){
+  const h=document.createElement("div");
+  h.className="heart";
+  h.style.left=Math.random()*100+"vw";
+  h.style.bottom="-40px";
+  container.appendChild(h);
+  setTimeout(()=>h.remove(),10000);
+}
+setInterval(criarCoracao,300);
+
+// Batimento do coração gigante (suave e contínuo)
+let t=0;
+function batimento(){
+  const scale=1+0.03*Math.sin(t);
+  bigHeart.style.transform=`translate(-50%,-50%) rotate(45deg) scale(${scale})`;
+  t+=0.03; // mais lento e natural
+  requestAnimationFrame(batimento);
+}
+
+// ECG fluido e lento
+let ecgX=0;
+let ecgPoints=[0,75];
+function gerarECG(){
+  const mid=75;
+  const variation=Math.sin(Date.now()/600)*20; // mais lento
+  const y=mid + variation*Math.random();
+  ecgPoints.push(`${ecgX},${y}`);
+  if(ecgPoints.length>120) ecgPoints.shift();
+  line.setAttribute("points",ecgPoints.join(" "));
+  ecgX+=5;
+  if(ecgX>600){ecgX=0;ecgPoints=[`0,${mid}`];}
+  requestAnimationFrame(gerarECG);
+}
+
+// Clique no botão
+botao.onclick=()=>{
+  watch.style.opacity="0";
+  document.querySelectorAll(".heart").forEach(h=>h.remove());
+  setTimeout(()=>{
+    bigHeart.style.display="block";
+    ecg.style.display="block";
+    batimento();
+    gerarECG();
+  },800);
+};
+</script>
+</body>
+</html>
