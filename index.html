@@ -2,11 +2,17 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Flight Simulator - Pro Pista & Shader</title>
+    <title>Flight Simulator - Hangar</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; touch-action: none; }
         #ui { position: absolute; top: 20px; left: 20px; color: #FFF; pointer-events: none; text-shadow: 2px 2px 4px #000; z-index: 10; }
         .info { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        
+        /* Menu de Seleção de Aviões */
+        #hangar { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 30; }
+        .btn-plane { padding: 10px; background: rgba(0,0,0,0.6); color: white; border: 1px solid #fff; cursor: pointer; transition: 0.3s; }
+        .btn-plane:hover { background: #fff; color: #000; }
+
         #joy-wrapper { position: absolute; bottom: 30px; left: 30px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid #FFF; touch-action: none; z-index: 20; }
         #joy-stick { position: absolute; width: 50px; height: 50px; background: #FFF; border-radius: 50%; top: 45px; left: 45px; }
         .thr-box { position: absolute; bottom: 30px; left: 200px; display: flex; flex-direction: column; align-items: center; color: #FFF; z-index: 20; }
@@ -20,6 +26,15 @@
     <div id="ui">
         <div class="info" id="ui-spd">SPEED: 0 kts</div>
         <div class="info" id="ui-alt">ALTITUDE: 0 m</div>
+    </div>
+
+    <div id="hangar">
+        <div style="color: white; font-size: 12px; text-align: center;">SELECT PLANE</div>
+        <button class="btn-plane" onclick="window.changePlane('t1.glb')">Plane 1</button>
+        <button class="btn-plane" onclick="window.changePlane('t2.glb')">Plane 2</button>
+        <button class="btn-plane" onclick="window.changePlane('t3.glb')">Plane 3</button>
+        <button class="btn-plane" onclick="window.changePlane('t4.glb')">Plane 4</button>
+        <button class="btn-plane" onclick="window.changePlane('t5.glb')">Plane 5</button>
     </div>
 
     <div class="controls"><button id="btn-engine">TURN ON</button></div>
@@ -50,48 +65,14 @@
 
         const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 5000000);
         
-        // --- LUZ E SOMBRA ---
         const sun = new THREE.DirectionalLight(0xffffff, 1.5);
         sun.castShadow = true;
-        sun.shadow.camera.left = -200;
-        sun.shadow.camera.right = 200;
-        sun.shadow.camera.top = 200;
-        sun.shadow.camera.bottom = -200;
+        sun.shadow.camera.left = -200; sun.shadow.camera.right = 200;
+        sun.shadow.camera.top = 200; sun.shadow.camera.bottom = -200;
         sun.shadow.camera.far = 3000;
         sun.shadow.mapSize.set(2048, 2048);
         scene.add(sun);
         scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-        // --- SHADER DO SOL (GLOW) ---
-        const sunGlowGeo = new THREE.SphereGeometry(30, 32, 32);
-        const sunGlowMat = new THREE.ShaderMaterial({
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            side: THREE.BackSide,
-            uniforms: {
-                glowColor: { value: new THREE.Color(0xfff5d2) },
-                viewVector: { value: camera.position }
-            },
-            vertexShader: `
-                uniform vec3 viewVector;
-                varying float intensity;
-                void main() {
-                    vec3 vNormal = normalize( normalMatrix * normal );
-                    vec3 vNormel = normalize( normalMatrix * viewVector );
-                    intensity = pow( 0.6 - dot(vNormal, vNormel), 4.0 );
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-                }
-            `,
-            fragmentShader: `
-                uniform vec3 glowColor;
-                varying float intensity;
-                void main() {
-                    gl_FragColor = vec4( glowColor, intensity );
-                }
-            `
-        });
-        const sunGlow = new THREE.Mesh(sunGlowGeo, sunGlowMat);
-        scene.add(sunGlow);
 
         // --- CÉU ---
         const skyGeo = new THREE.SphereGeometry(2000000, 32, 15);
@@ -101,8 +82,7 @@
             uniforms: { topColor: { value: new THREE.Color(0x00d4ff) }, bottomColor: { value: new THREE.Color(0xffffff) }, offset: { value: 0.05 }, exponent: { value: 0.6 } },
             side: THREE.BackSide
         });
-        const sky = new THREE.Mesh(skyGeo, skyMat);
-        scene.add(sky);
+        scene.add(new THREE.Mesh(skyGeo, skyMat));
 
         // --- PLANETA ---
         const planetRadius = 637000;
@@ -110,38 +90,58 @@
         planet.position.y = -planetRadius; planet.receiveShadow = true;
         scene.add(planet);
 
-        // --- PISTA (Mais grossa e colada no chão) ---
-        const runwayWidth = 120; // Pista mais larga
+        // --- PISTA ---
+        const runwayWidth = 120;
         const runway = new THREE.Mesh(new THREE.PlaneGeometry(runwayWidth, 4000), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
         runway.rotation.x = -Math.PI / 2; 
-        runway.position.y = 0.01; // Colada no chão
-        runway.position.z = -1900; 
+        runway.position.y = 0.01; runway.position.z = -1900; 
         runway.receiveShadow = true;
         scene.add(runway);
 
-        // Faixas brancas
+        // Faixas brancas (AJUSTADAS: mais finas e curtas)
         for(let i = 0; i > -3900; i -= 60) {
-            const stripe = new THREE.Mesh(new THREE.PlaneGeometry(6, 30), new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
+            const stripe = new THREE.Mesh(new THREE.PlaneGeometry(2, 15), new THREE.MeshBasicMaterial({ color: 0xFFFFFF }));
             stripe.rotation.x = -Math.PI / 2; 
             stripe.position.set(0, 0.02, i); 
             scene.add(stripe);
         }
 
-        // --- AVIÃO ---
+        // --- AVIÃO E LÓGICA DE CARREGAMENTO ---
         const planeGroup = new THREE.Group();
         const modelInner = new THREE.Group();
         planeGroup.add(modelInner);
-        let speed = 0, engine = false, thr = 0, joy = { x: 0, y: 0 };
-        
-        new GLTFLoader().load('1.glb', (gltf) => {
-            gltf.scene.rotation.y = Math.PI; gltf.scene.position.y = -0.55; 
-            gltf.scene.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-            modelInner.add(gltf.scene);
-        });
         scene.add(planeGroup);
         planeGroup.position.set(0, 0.6, 0);
 
-        // --- CÂMERA ORBITAL ---
+        let speed = 0, engine = false, thr = 0, joy = { x: 0, y: 0 };
+        const loader = new GLTFLoader();
+
+        window.changePlane = function(fileName) {
+            // Limpa o modelo anterior
+            while(modelInner.children.length > 0){ 
+                modelInner.remove(modelInner.children[0]); 
+            }
+            
+            // Reseta posição para a pista ao trocar (opcional)
+            planeGroup.position.set(0, 0.6, 0);
+            planeGroup.rotation.set(0, 0, 0);
+            speed = 0;
+
+            loader.load(fileName, (gltf) => {
+                gltf.scene.rotation.y = Math.PI; 
+                gltf.scene.position.y = -0.55; 
+                gltf.scene.traverse(n => { if(n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+                modelInner.add(gltf.scene);
+            }, undefined, (error) => {
+                console.error("Erro ao carregar modelo: " + fileName);
+                alert("Certifique-se que o arquivo " + fileName + " existe na pasta!");
+            });
+        };
+
+        // Carrega o primeiro por padrão
+        window.changePlane('t1.glb');
+
+        // --- CONTROLES DE CÂMERA ---
         let camTheta = Math.PI, camPhi = 0.2, camDist = 35;
         let targetCamTheta = Math.PI, targetCamPhi = 0.2;
         let isMovingCam = false, lastX = 0, lastY = 0;
@@ -153,11 +153,11 @@
             lastX = x; lastY = y;
         };
 
-        window.addEventListener('mousedown', e => { isMovingCam = true; lastX = e.clientX; lastY = e.clientY; });
+        window.addEventListener('mousedown', e => { if(e.button===0){isMovingCam = true; lastX = e.clientX; lastY = e.clientY;} });
         window.addEventListener('mousemove', e => updateCam(e.clientX, e.clientY));
         window.addEventListener('mouseup', () => isMovingCam = false);
         window.addEventListener('touchstart', e => {
-            if (e.target.tagName !== 'INPUT' && !document.getElementById('joy-wrapper').contains(e.target)) {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !document.getElementById('joy-wrapper').contains(e.target)) {
                 isMovingCam = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
             }
         });
@@ -188,7 +188,6 @@
 
         function loop() {
             const dt = clock.getDelta();
-            
             const rayOrigin = planeGroup.position.clone().add(new THREE.Vector3(0, 10, 0));
             raycaster.set(rayOrigin, downVec);
             const hits = raycaster.intersectObject(planet);
@@ -224,15 +223,6 @@
                 planeGroup.position.z + camDist * Math.cos(camTheta) * Math.cos(camPhi)
             );
             camera.lookAt(planeGroup.position);
-
-            // Atualiza Sol e Shader
-            const sunDir = new THREE.Vector3(200, 600, 200).normalize();
-            sun.position.copy(planeGroup.position).add(sunDir.multiplyScalar(800));
-            sun.target = planeGroup;
-            sunGlow.position.copy(sun.position);
-            sunGlowMat.uniforms.viewVector.value = new THREE.Vector3().subVectors(camera.position, sunGlow.position);
-            
-            sky.position.copy(planeGroup.position);
 
             document.getElementById('ui-spd').innerText = `SPEED: ${Math.round(speed)} kts`;
             document.getElementById('ui-alt').innerText = `ALTITUDE: ${Math.max(0, Math.round(currentAlt))} m`;
